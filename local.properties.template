@@ -1,0 +1,10 @@
+# local.properties — Git'e ekleme (.gitignore'a ekleyin)
+# Android Studio veya sdkmanager kurduktan sonra bu yolu güncelleyin.
+# CI/CD'de bu dosya otomatik oluşturulur.
+
+# Örnek (Linux/macOS):
+# sdk.dir=/home/KULLANICI/Android/Sdk
+
+# Örnek (Windows):
+# sdk.dir=C\:\\Users\\KULLANICI\\AppData\\Local\\Android\\Sdk
+sdk.dir=/home/user/Android/Sdk
