@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22.1)
-project(muhur LANGUAGES CXX)
+project(muhur VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_library(native_app_glue STATIC
     ${ANDROID_NDK}/sources/android/native_app_glue/android_native_app_glue.c
 )
+set_target_properties(native_app_glue PROPERTIES LINKER_LANGUAGE C)
 target_include_directories(native_app_glue PUBLIC
     ${ANDROID_NDK}/sources/android/native_app_glue
 )
