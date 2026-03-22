@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# ── native_app_glue ───────────────────────────────────────
+# native_app_glue
 add_library(native_app_glue STATIC
     ${ANDROID_NDK}/sources/android/native_app_glue/android_native_app_glue.c
 )
@@ -14,7 +14,7 @@ target_include_directories(native_app_glue PUBLIC
     ${ANDROID_NDK}/sources/android/native_app_glue
 )
 
-# ── Ana kütüphane ─────────────────────────────────────────
+# Ana .so
 add_library(muhur SHARED
     ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp
 )
@@ -24,12 +24,11 @@ target_include_directories(muhur PRIVATE
     ${ANDROID_NDK}/sources/android/native_app_glue
 )
 
-# ── Sistem kütüphaneleri ──────────────────────────────────
-find_library(lib_log        log)
-find_library(lib_android    android)
-find_library(lib_egl        EGL)
-find_library(lib_gles2      GLESv2)
-find_library(lib_z          z)
+find_library(lib_log     log)
+find_library(lib_android android)
+find_library(lib_egl     EGL)
+find_library(lib_gles2   GLESv2)
+find_library(lib_z       z)
 
 target_link_libraries(muhur
     native_app_glue
