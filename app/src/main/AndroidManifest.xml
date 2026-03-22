@@ -10,12 +10,13 @@
         android:required="true" />
 
     <application
-        android:label="MÜHÜR"
+        android:label="@string/app_name"
+        android:icon="@mipmap/ic_launcher"
         android:allowBackup="false">
 
         <activity
             android:name="android.app.NativeActivity"
-            android:label="MÜHÜR"
+            android:label="@string/app_name"
             android:configChanges="orientation|keyboardHidden|screenSize|screenLayout"
             android:screenOrientation="portrait"
             android:exported="true"
