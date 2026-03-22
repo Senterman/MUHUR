@@ -1,7 +1,8 @@
 /**
- * MÜHÜR — main.cpp  (Tam Oyun)
- * Shader VBO + doğru koordinat sistemi
- * Splash → Ana Menü → Ayarlar
+ * MÜHÜR — main.cpp
+ * Çalışan EGL konfigürasyonu + önceki shader (n.y negatif)
+ * Piksel koordinatlarında Y düzeltmesi: rect çağırırken
+ * y yerine (H - y - h) kullanıyoruz
  */
 
 #include <android_native_app_glue.h>
@@ -16,25 +17,19 @@
 #define LI(...) __android_log_print(ANDROID_LOG_INFO,  TAG, __VA_ARGS__)
 #define LE(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
 
-/* ════ SHADER ════
- * Koordinat: piksel (0,0) = sol üst, (W,H) = sağ alt
- * Y ekseni: Android dokunma koordinatıyla aynı yön
- */
+/* ════ SHADER — çalışan versiyon (n.y negatif) ════ */
 static const char* VERT =
 "attribute vec2 aPos;\n"
 "uniform   vec2 uRes;\n"
 "void main() {\n"
-"    float nx =  (aPos.x / uRes.x) * 2.0 - 1.0;\n"
-"    float ny = -(aPos.y / uRes.y) * 2.0 + 1.0;\n"
-"    gl_Position = vec4(nx, ny, 0.0, 1.0);\n"
+"    vec2 n = (aPos / uRes) * 2.0 - 1.0;\n"
+"    gl_Position = vec4(n.x, -n.y, 0.0, 1.0);\n"
 "}\n";
 
 static const char* FRAG =
 "precision mediump float;\n"
 "uniform vec4 uColor;\n"
-"void main() {\n"
-"    gl_FragColor = uColor;\n"
-"}\n";
+"void main() { gl_FragColor = uColor; }\n";
 
 /* ════ RENKLER ════ */
 static const float BG[4]   = {0.051f,0.039f,0.020f,1.0f};
@@ -67,29 +62,35 @@ static bool  g_bp[4]={};
 static float g_sx[4],g_sy[4],g_sw2[4],g_sh2[4];
 
 /* ════ SHADER ════ */
-static GLuint mkSh(GLenum t, const char* src) {
-    GLuint h = glCreateShader(t);
-    glShaderSource(h,1,&src,nullptr);
-    glCompileShader(h);
+static GLuint mkSh(GLenum t,const char*s){
+    GLuint h=glCreateShader(t);
+    glShaderSource(h,1,&s,nullptr); glCompileShader(h);
     GLint ok=0; glGetShaderiv(h,GL_COMPILE_STATUS,&ok);
-    if(!ok){ char b[256]={};glGetShaderInfoLog(h,256,nullptr,b);LE("SH:%s",b); }
+    if(!ok){char b[256]={};glGetShaderInfoLog(h,256,nullptr,b);LE("SH:%s",b);}
     return h;
 }
-static GLuint mkProg() {
+static GLuint mkProg(){
     GLuint vs=mkSh(GL_VERTEX_SHADER,VERT);
     GLuint fs=mkSh(GL_FRAGMENT_SHADER,FRAG);
     GLuint p=glCreateProgram();
-    glAttachShader(p,vs); glAttachShader(p,fs);
-    glLinkProgram(p);
+    glAttachShader(p,vs); glAttachShader(p,fs); glLinkProgram(p);
     glDeleteShader(vs); glDeleteShader(fs);
     GLint ok=0; glGetProgramiv(p,GL_LINK_STATUS,&ok);
-    LI("prog=%u link=%d",p,ok);
+    LI("prog=%u ok=%d",p,ok);
     return p;
 }
 
-/* ════ ÇİZİM ════ */
-static void rect(float x,float y,float w,float h,const float* col) {
-    float v[8]={x,y, x+w,y, x,y+h, x+w,y+h};
+/* ════ ÇİZİM
+ * Shader Y ekseni ters (n.y negatif), bu yüzden
+ * ekranın üstü = H, altı = 0.
+ * Düzeltme: rect çağırırken y'yi çevir.
+ * flip(y,h) = H - y - h
+ * ════ */
+static inline float fy(float y,float h){ return (float)g_H - y - h; }
+
+static void rect(float x,float y,float w,float h,const float*col){
+    float yy=fy(y,h);
+    float v[8]={x,yy, x+w,yy, x,yy+h, x+w,yy+h};
     glBindBuffer(GL_ARRAY_BUFFER,g_vbo);
     glBufferData(GL_ARRAY_BUFFER,sizeof(v),v,GL_DYNAMIC_DRAW);
     glEnableVertexAttribArray((GLuint)g_aPos);
@@ -101,8 +102,7 @@ static void rect(float x,float y,float w,float h,const float* col) {
     glBindBuffer(GL_ARRAY_BUFFER,0);
 }
 
-/* Tarama çizgileri */
-static void scanlines() {
+static void scanlines(){
     float c[4]={0,0,0,0.10f};
     for(float y=0;y<(float)g_H;y+=4.f) rect(0,y,(float)g_W,1.5f,c);
 }
@@ -152,14 +152,12 @@ static void drawCh(char ch,float ox,float oy,const float*c){
     case ':':fD(ox,oy,2,2,c);fD(ox,oy,2,6,c);break;
     case '.':fD(ox,oy,2,8,c);break;
     case '-':fH(ox,oy,1,4,3,c);break;
-    case '/':fD(ox,oy,3,1,c);fD(ox,oy,2,3,c);fD(ox,oy,1,5,c);break;
-    default: break;
+    default:break;
     }
 }
 
-static int strn(const char* s){
-    int n=0; for(const char*p=s;*p&&*p!='\n';p++) n++;
-    return n;
+static int strn(const char*s){
+    int n=0; for(const char*p=s;*p&&*p!='\n';p++)n++; return n;
 }
 static void drawStr(const char*s,float x,float y,float ps,const float*col){
     gPS=ps; float cx=x,cy=y;
@@ -200,21 +198,16 @@ static void rSplash(){
     glViewport(0,0,g_W,g_H);
     glClearColor(BG[0],BG[1],BG[2],1); glClear(GL_COLOR_BUFFER_BIT);
     glUseProgram(g_prog);
-
     scanlines();
     rect(0,sh*.010f,sw,sh*.004f,GOLD);
     rect(0,sh*.974f,sw,sh*.004f,GOLD);
-
     float ps=sw*.010f;
     drawStrC("BONECASTOFFICIAL",sh*.370f,ps,GOLD);
     drawStrC("SUNAR",sh*.370f+14*ps,sw*.007f,GDIM);
-
-    /* İlerleme çubuğu */
     float prog=fminf((float)g_frame/120.f,1.f);
     float bx=sw*.20f,by=sh*.640f,bw=sw*.60f,bh=sh*.007f;
     rect(bx,by,bw,bh,DARK);
     rect(bx,by,bw*prog,bh,GOLD);
-
     drawStrC("ANDROID NDK   OPENGL ES 2.0",sh*.720f,sw*.007f,GDIM);
 }
 
@@ -223,31 +216,23 @@ static void rMenu(){
     glViewport(0,0,g_W,g_H);
     glClearColor(BG[0],BG[1],BG[2],1); glClear(GL_COLOR_BUFFER_BIT);
     glUseProgram(g_prog);
-
     scanlines();
     rect(0,sh*.010f,sw,sh*.004f,GOLD);
     rect(0,sh*.974f,sw,sh*.004f,GOLD);
-
-    /* Başlık */
     float ps=sw*.014f;
     drawStrC("MUHUR",sh*.055f,ps,GOLD);
-
-    /* Ayraç + motto */
     rect(sw*.08f,sh*.165f,sw*.84f,sh*.002f,GDIM);
     drawStrC("KADERIN MUHRUNUN UCUNDA",sh*.178f,sw*.008f,GDIM);
     rect(sw*.08f,sh*.230f,sw*.84f,sh*.002f,GOLD);
-
-    /* Butonlar */
     float bw=sw*.72f,bh=sh*.080f;
     float bx=(sw-bw)*.5f,gap=sh*.022f,sy=sh*.260f,bp=sw*.013f;
     const char*lb[4]={"YENİ OYUN","DEVAM ET","AYARLAR","CIKIS"};
     bool en[4]={true,false,true,true};
     for(int i=0;i<4;i++){
-        float fy=sy+(float)i*(bh+gap);
-        g_bx[i]=bx;g_by[i]=fy;g_bw[i]=bw;g_bh[i]=bh;
-        drawBtn(bx,fy,bw,bh,lb[i],en[i],g_bp[i],bp);
+        float fy2=sy+(float)i*(bh+gap);
+        g_bx[i]=bx;g_by[i]=fy2;g_bw[i]=bw;g_bh[i]=bh;
+        drawBtn(bx,fy2,bw,bh,lb[i],en[i],g_bp[i],bp);
     }
-
     drawStrC("BONECASTOFFICIAL",sh*.930f,sw*.007f,GDIM);
     drawStr("V0.1",sw*.04f,sh*.950f,sw*.007f,GDIM);
 }
@@ -257,35 +242,29 @@ static void rSettings(){
     glViewport(0,0,g_W,g_H);
     glClearColor(BG[0],BG[1],BG[2],1); glClear(GL_COLOR_BUFFER_BIT);
     glUseProgram(g_prog);
-
     scanlines();
     rect(0,sh*.010f,sw,sh*.004f,GOLD);
     drawStrC("AYARLAR",sh*.060f,sw*.012f,GOLD);
     rect(sw*.10f,sh*.155f,sw*.80f,sh*.003f,GDIM);
-
     float bw=sw*.70f,bh=sh*.080f,bx=(sw-bw)*.5f,bp=sw*.012f;
     char sesL[24]; snprintf(sesL,24,"SES %s",g_sndOn?"ACIK":"KAPALI");
     g_sx[0]=bx;g_sy[0]=sh*.22f;g_sw2[0]=bw;g_sh2[0]=bh;
     drawBtn(bx,sh*.22f,bw,bh,sesL,true,false,bp);
-
     if(g_fps==60){float hl[4]={GOLD[0],GOLD[1],GOLD[2],.20f};rect(bx,sh*.33f,bw,bh,hl);}
     g_sx[1]=bx;g_sy[1]=sh*.33f;g_sw2[1]=bw;g_sh2[1]=bh;
     drawBtn(bx,sh*.33f,bw,bh,"FPS 60",true,false,bp);
-
     if(g_fps==30){float hl[4]={GOLD[0],GOLD[1],GOLD[2],.20f};rect(bx,sh*.44f,bw,bh,hl);}
     g_sx[2]=bx;g_sy[2]=sh*.44f;g_sw2[2]=bw;g_sh2[2]=bh;
     drawBtn(bx,sh*.44f,bw,bh,"FPS 30",true,false,bp);
-
     g_sx[3]=bx;g_sy[3]=sh*.62f;g_sw2[3]=bw;g_sh2[3]=bh;
     drawBtn(bx,sh*.62f,bw,bh,"GERI",true,false,bp);
-
     char ft[24]; snprintf(ft,24,"HEDEF %d FPS",g_fps);
     drawStrC(ft,sh*.74f,sw*.008f,GDIM);
 }
 
 /* ════ DOKUNMA ════ */
 static void onUp(float tx,float ty,android_app*aapp){
-    if(g_state==ST_SPLASH){ g_state=ST_MENU; return; }
+    if(g_state==ST_SPLASH){g_state=ST_MENU;return;}
     if(g_state==ST_MENU){
         memset(g_bp,0,sizeof(g_bp));
         if(hit(g_bx[0],g_by[0],g_bw[0],g_bh[0],tx,ty)) LI("YENİ OYUN");
@@ -298,7 +277,6 @@ static void onUp(float tx,float ty,android_app*aapp){
         else if(hit(g_sx[1],g_sy[1],g_sw2[1],g_sh2[1],tx,ty)) g_fps=60;
         else if(hit(g_sx[2],g_sy[2],g_sw2[2],g_sh2[2],tx,ty)) g_fps=30;
         else if(hit(g_sx[3],g_sy[3],g_sw2[3],g_sh2[3],tx,ty)) g_state=ST_MENU;
-        return;
     }
 }
 
@@ -307,7 +285,7 @@ static void onCmd(android_app*aapp,int32_t cmd){
     switch(cmd){
     case APP_CMD_INIT_WINDOW:{
         LI("INIT");
-        if(!aapp->window){LE("null win");break;}
+        if(!aapp->window){LE("null");break;}
         g_dpy=eglGetDisplay(EGL_DEFAULT_DISPLAY);
         if(g_dpy==EGL_NO_DISPLAY){LE("noDisp");break;}
         EGLint ma=0,mi=0;
@@ -322,7 +300,7 @@ static void onCmd(android_app*aapp,int32_t cmd){
             eglChooseConfig(g_dpy,a2,&cfg,1,&nc);
         }
         g_suf=eglCreateWindowSurface(g_dpy,cfg,aapp->window,nullptr);
-        if(g_suf==EGL_NO_SURFACE){LE("surf 0x%x",eglGetError());break;}
+        if(g_suf==EGL_NO_SURFACE){LE("surf");break;}
         const EGLint ca[]={EGL_CONTEXT_CLIENT_VERSION,2,EGL_NONE};
         g_ctx=eglCreateContext(g_dpy,cfg,EGL_NO_CONTEXT,ca);
         if(g_ctx==EGL_NO_CONTEXT){LE("ctx");break;}
@@ -331,6 +309,13 @@ static void onCmd(android_app*aapp,int32_t cmd){
         eglQuerySurface(g_dpy,g_suf,EGL_WIDTH,&g_W);
         eglQuerySurface(g_dpy,g_suf,EGL_HEIGHT,&g_H);
         LI("size %dx%d",g_W,g_H);
+
+        /* Test frame — önceki çalışan versiyonla aynı */
+        glViewport(0,0,g_W,g_H);
+        glClearColor(0.4f,0.3f,0.05f,1.f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        eglSwapBuffers(g_dpy,g_suf);
+        LI("test frame OK");
 
         g_prog=mkProg();
         if(!g_prog){LE("prog");break;}
@@ -347,7 +332,7 @@ static void onCmd(android_app*aapp,int32_t cmd){
         memset(g_bp,0,sizeof(g_bp));
         g_state=ST_SPLASH; g_frame=0;
         g_ok=true;
-        LI("HAZIR %dx%d",g_W,g_H);
+        LI("HAZIR");
         break;
     }
     case APP_CMD_TERM_WINDOW:
@@ -372,7 +357,6 @@ static void onCmd(android_app*aapp,int32_t cmd){
     default:break;
     }
 }
-
 static int32_t onInp(android_app*aapp,AInputEvent*evt){
     if(!g_ok)return 0;
     if(AInputEvent_getType(evt)!=AINPUT_EVENT_TYPE_MOTION)return 0;
@@ -403,13 +387,12 @@ void android_main(android_app*aapp){
         }
         if(!g_ok)continue;
         switch(g_state){
-            case ST_SPLASH:
-                rSplash();
-                g_frame++;
-                if(g_frame>=120)g_state=ST_MENU;
-                break;
-            case ST_MENU:     rMenu();     break;
-            case ST_SETTINGS: rSettings(); break;
+        case ST_SPLASH:
+            rSplash(); g_frame++;
+            if(g_frame>=120)g_state=ST_MENU;
+            break;
+        case ST_MENU:     rMenu();     break;
+        case ST_SETTINGS: rSettings(); break;
         }
         eglSwapBuffers(g_dpy,g_suf);
     }
