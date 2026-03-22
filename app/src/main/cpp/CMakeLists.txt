@@ -28,7 +28,9 @@ target_include_directories(native_app_glue PUBLIC
 # Ana paylaşımlı kütüphane (APK içindeki .so)
 # ─────────────────────────────────────────────
 add_library(muhur SHARED
-    src/main/cpp/main.cpp
+    main.cpp
+)
+
     # İleride eklenecek modüller:
     # src/main/cpp/game/card_engine.cpp
     # src/main/cpp/game/stat_system.cpp
