@@ -1,21 +1,52 @@
-// MÜHÜR — Root build.gradle
-buildscript {
-    repositories {
-        google()
-        mavenCentral()
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace     'com.muhur.game'
+    compileSdk    34
+
+    defaultConfig {
+        applicationId   "com.muhur.game"
+        minSdk          24
+        targetSdk       34
+        versionCode     1
+        versionName     "0.1.0"
+
+        ndk {
+            abiFilters "arm64-v8a", "armeabi-v7a"
+        }
+        externalNativeBuild {
+            cmake {
+                cppFlags    "-std=c++17"
+                arguments   "-DANDROID_STL=c++_static"
+            }
+        }
     }
-    dependencies {
-        classpath 'com.android.tools.build:gradle:8.2.2'
+
+    externalNativeBuild {
+        cmake {
+            path    "src/main/cpp/CMakeLists.txt"
+            version "3.22.1"
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.debug
+        }
+        debug {
+            debuggable      true
+            jniDebuggable   true
+        }
+    }
+
+    sourceSets {
+        main {
+            assets.srcDirs = ['src/main/assets']
+        }
     }
 }
 
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-    }
-}
-
-task clean(type: Delete) {
-    delete rootProject.buildDir
-}
+dependencies {}
