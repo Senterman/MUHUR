@@ -1,2 +1,3 @@
+// MÜHÜR — settings.gradle
 rootProject.name = "MUHUR"
 include ':app'
