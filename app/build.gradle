@@ -1,0 +1,45 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace     'com.muhur.game'
+    compileSdk    34
+
+    defaultConfig {
+        applicationId  "com.muhur.game"
+        minSdk         24
+        targetSdk      34
+        versionCode    1
+        versionName    "0.1.0"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled   false
+            signingConfig   signingConfigs.debug
+        }
+        debug {
+            applicationIdSuffix ".debug"
+            debuggable          true
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    sourceSets {
+        main {
+            assets.srcDirs = ['src/main/assets']
+        }
+    }
+
+    // NDK yok — sadece saf Java + OpenGL ES 2.0
+    // externalNativeBuild bloğu kasıtlı olarak yok
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+}
