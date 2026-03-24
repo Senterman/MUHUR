@@ -5,19 +5,24 @@ import android.opengl.GLSurfaceView;
 import android.view.MotionEvent;
 
 /**
- * MÜHÜR — GameView
- * GLSurfaceView alt sınıfı.
- * EGL yapılandırması: Alpha=0 (Casper cihazında siyah ekran önlemi)
- * Touch olayları queueEvent ile renderer thread'ine iletilir.
+ * MÜHÜR — GameView  (Revizyon 3)
+ *
+ * Değişiklik:
+ *   - Constructor artık dışarıdan bir GameRenderer alır.
+ *     GameActivity, Renderer'ı MusicController ile birlikte oluşturur
+ *     ve buraya geçirir. GameView kendi Renderer oluşturmuyor.
+ *
+ * Korunanlar:
+ *   - setEGLConfigChooser(8,8,8,0,0,0) — Casper VIA X30 zorunluluğu
+ *   - queueEvent touch yönlendirmesi — thread safety
  */
 public class GameView extends GLSurfaceView {
 
     private final GameRenderer mRenderer;
 
-    public GameView(Context context) {
+    public GameView(Context context, GameRenderer renderer) {
         super(context);
 
-        // OpenGL ES 2.0
         setEGLContextClientVersion(2);
 
         /*
@@ -32,28 +37,25 @@ public class GameView extends GLSurfaceView {
          */
         setEGLConfigChooser(8, 8, 8, 0, 0, 0);
 
-        // Renderer oluştur ve ata
-        mRenderer = new GameRenderer(context);
+        mRenderer = renderer;
         setRenderer(mRenderer);
 
-        // Sürekli render modu — onDrawFrame her frame çağrılır
         setRenderMode(RENDERMODE_CONTINUOUSLY);
     }
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        final float x = event.getX();
-        final float y = event.getY();
-        final int action = event.getActionMasked();
-        final long time = event.getEventTime();
+        final float x      = event.getX();
+        final float y      = event.getY();
+        final int action   = event.getActionMasked();
+        final long time    = event.getEventTime();
 
         /*
          * KRITIK: Touch olayları mutlaka queueEvent ile iletilmeli.
          * Direkt renderer metodunu çağırmak thread-safe değil.
-         * queueEvent, komutu GL thread kuyruğuna ekler.
          */
         queueEvent(() -> mRenderer.onTouch(action, x, y, time));
 
-        return true; // olayı tüket
+        return true;
     }
 }

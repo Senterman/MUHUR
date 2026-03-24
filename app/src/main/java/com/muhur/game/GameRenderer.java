@@ -21,19 +21,40 @@ import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
 /**
- * MÜHÜR — GameRenderer  (Revizyon 2)
+ * MÜHÜR — GameRenderer  (Revizyon 3)
  *
- * Düzeltmeler:
- *   1. AKIŞ DÜZELTİLDİ: Splash → MENÜ → (YENİ OYUN basınca) → Sinematik
- *   2. TAŞMA DÜZELTİLDİ: fitTextPS() + wrapText() ile otomatik ölçekleme
- *   3. EKRAN UYUMU: mPad + mUsableW ile güvenli alan, 20:9 desteği
+ * Değişiklikler:
+ *   1. MusicController interface eklendi — Activity'ye bağımlı olmadan ses yönetimi
+ *   2. Ayarlar: Ses Aç/Kapat → %0-%100 Slider (SharedPreferences ile senkronize)
+ *   3. Slider dokunma mantığı: sürükleme, tek dokunuş, hassas pozisyon hesabı
+ *   4. Müzik: menü ekranına geçişte MusicController.onMusicStart() tetiklenir
+ *
+ * Korunan / DEĞİŞMEYEN:
+ *   - Tüm state machine akışı (ST_SPLASH → ST_MENU → ST_CINEMA → ST_GAME)
+ *   - Shader'lar, texture yükleme, font sistemi, scanLines, CRT efekti
+ *   - fitTextPS(), wrapText(), drawButton(), tüm çizim primitifleri
  */
 public class GameRenderer implements GLSurfaceView.Renderer {
 
+    // ══════════════════════════════════════════════════════════════════════
+    //  MUSICController INTERFACE
+    //  GameActivity bu interface'i implement eder.
+    //  Renderer, Activity'ye doğrudan referans tutmaz — sadece bu interface.
+    // ══════════════════════════════════════════════════════════════════════
+
+    public interface MusicController {
+        /** Menü ekranına ilk geçişte çağrılır — müziği başlat */
+        void onMusicStart();
+        /** Slider değişince çağrılır (0.0 – 1.0) */
+        void onVolumeChanged(float volume);
+        /** Renderer başlangıçta mevcut sesi sorgular */
+        float getVolume();
+    }
+
     // ─── STATE SABİTLERİ ───────────────────────────────────────────────────
     private static final int ST_SPLASH   = 0;
-    private static final int ST_MENU     = 1;   // Splash → MENÜ (düzeltildi)
-    private static final int ST_CINEMA   = 2;   // Yeni Oyun → Sinematik
+    private static final int ST_MENU     = 1;
+    private static final int ST_CINEMA   = 2;
     private static final int ST_SETTINGS = 3;
     private static final int ST_GAME     = 4;
 
@@ -95,13 +116,10 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
     // ─── EKRAN & GÜVENLI ALAN ──────────────────────────────────────────────
     private float mW, mH;
-    /** Yatay kenar boşluğu — metin bu alanın dışına çıkmaz */
     private float mPad;
-    /** Kullanılabilir genişlik = mW - 2*mPad */
     private float mUsableW;
 
     // ─── FONT ──────────────────────────────────────────────────────────────
-    /** Temel piksel boyutu — onSurfaceChanged'de ekrana göre hesaplanır */
     private float gPS;
 
     // ─── OYUN DURUMU ───────────────────────────────────────────────────────
@@ -122,25 +140,42 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private static final long TYPEWRITER_MS = 55;
     private static final long SKIP_HOLD_MS  = 3000;
 
-    // Menu / Settings
+    // Menu
     private int mMenuHover = -1, mMenuPress = -1;
+
+    // Settings
     private int mSetHover  = -1, mSetPress  = -1;
 
-    // Settings değerleri
-    private boolean mSoundOn = true;
-    private int     mFps     = 60;
+    // ─── SES SLIDER ────────────────────────────────────────────────────────
+    /** Mevcut ses seviyesi — MusicController'dan başlangıçta yüklenir */
+    private float mVolume = 0.75f;
+    /** Slider sürükleniyor mu? */
+    private boolean mSliderDragging = false;
+    /** FPS ayarı (değişmedi) */
+    private int mFps = 60;
+    /** Müzik daha önce başlatıldı mı? (tekrar başlatmamak için) */
+    private boolean mMusicStarted = false;
 
     // Touch
     private float mTouchX, mTouchY;
     private int   mTouchAction = -1;
 
-    // ─── CONTEXT ───────────────────────────────────────────────────────────
-    private final Context      mCtx;
-    private final AssetManager mAssets;
+    // ─── CONTEXT & MÜZİK ───────────────────────────────────────────────────
+    private final Context         mCtx;
+    private final AssetManager    mAssets;
+    private final MusicController mMusic;
 
-    public GameRenderer(Context ctx) {
+    // ══════════════════════════════════════════════════════════════════════
+    //  CONSTRUCTOR
+    // ══════════════════════════════════════════════════════════════════════
+
+    public GameRenderer(Context ctx, MusicController music) {
         mCtx    = ctx;
         mAssets = ctx.getAssets();
+        mMusic  = music;
+        // Kayıtlı ses seviyesini hemen oku
+        if (mMusic != null) mVolume = mMusic.getVolume();
+
         for (int i = 0; i < 6; i++) mTexCinema[i] = -1;
         ByteBuffer bb = ByteBuffer.allocateDirect(8 * 4);
         bb.order(ByteOrder.nativeOrder());
@@ -180,12 +215,9 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         mW = w; mH = h;
         GLES20.glViewport(0, 0, w, h);
 
-        // Güvenli padding: %5 yatay boşluk
         mPad     = mW * 0.05f;
         mUsableW = mW - mPad * 2f;
 
-        // Font boyutu: ekran genişliğine orantılı
-        // mW/144 → 360px ekranda gPS≈2.5, 720px'de ≈5.0
         gPS = mW / 144f;
         gPS = Math.max(1.8f, Math.min(gPS, 5.5f));
     }
@@ -230,9 +262,10 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
         if (mFrame >= SPLASH_FRAMES) {
             mFrame = 0;
-            // ← DÜZELTME: Splash bitti → MENÜ'ye geç (sinematik değil)
             mState     = ST_MENU;
             mMenuHover = mMenuPress = -1;
+            // ← Müziği başlat (sadece bir kez)
+            triggerMusicStart();
         }
     }
 
@@ -244,6 +277,14 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             mCinemaLast = now;
             if (mCinemaChar < text.length()) mCinemaChar++;
             else mCinemaDone = true;
+        }
+    }
+
+    /** Müziği sadece bir kez başlat */
+    private void triggerMusicStart() {
+        if (!mMusicStarted && mMusic != null) {
+            mMusicStarted = true;
+            mMusic.onMusicStart();
         }
     }
 
@@ -276,12 +317,10 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             drawTex(mTexLogo, cx - lw/2f, cy - lw/2f - mH*0.06f, lw, lw, a);
         }
 
-        // BoneCastOfficial — genişliğe sığacak şekilde otomatik küçülür
         float ps = fitTextPS("BONECASTOFFICIAL", mUsableW * 0.88f, gPS);
         float[] col = {C_GOLD[0], C_GOLD[1], C_GOLD[2], a};
         drawStringC("BONECASTOFFICIAL", cy + mH * 0.09f, ps, col);
 
-        // Progress bar
         float prog = Math.min(1f, mFrame / (float) SPLASH_FRAMES);
         float bw = mUsableW * 0.50f, bh = gPS * 1.5f;
         float bx = cx - bw/2f, by = mH * 0.86f;
@@ -312,19 +351,15 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
         float cx = mW / 2f;
 
-        // Başlık — usableW'nin %80'ine sığacak kadar büyük
         float titlePS = fitTextPS("MUHUR", mUsableW * 0.80f, gPS * 2.0f);
         drawStringC("MUHUR", mH * 0.16f, titlePS, C_GOLD);
 
-        // Motto — word-wrap aktif
         drawStringCWrapped("KADERIN, MUHRURUN UCUNDA.",
                 mH * 0.29f, gPS * 0.68f, C_GDIM);
 
-        // Geliştirici
         float devPS = fitTextPS("BONECASTOFFICIAL", mUsableW * 0.68f, gPS * 0.58f);
         drawStringC("BONECASTOFFICIAL", mH * 0.36f, devPS, C_GREY);
 
-        // Butonlar
         float bw    = mUsableW * 0.72f;
         float bh    = Math.max(gPS * 8.5f, mH * 0.065f);
         float bx    = cx - bw / 2f;
@@ -332,12 +367,11 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         float startY= mH * 0.46f;
 
         for (int i = 0; i < MENU_LABELS.length; i++) {
-            boolean disabled = (i == 1); // Devam Et pasif
+            boolean disabled = (i == 1);
             drawButton(MENU_LABELS[i], bx, startY + i * gap, bw, bh,
                     mMenuHover == i, mMenuPress == i, disabled);
         }
 
-        // Versiyon
         float[] greyA = {C_GREY[0], C_GREY[1], C_GREY[2], 0.45f};
         drawString("v0.1.0", mPad, mH - gPS * 5f, gPS * 0.62f, greyA);
 
@@ -369,7 +403,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             if (p < 0) return;
             if (!hit(x, y, bx, startY + p * gap, bw, bh)) return;
             switch (p) {
-                case 0: // ← YENİ OYUN: sinematik başlat
+                case 0:
                     startCinema();
                     break;
                 case 1: break; // Devam Et pasif
@@ -385,7 +419,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         }
     }
 
-    /** Sinematik başlatma — state değişkenleri sıfırlanır */
     private void startCinema() {
         mCinemaScene = 0;
         mCinemaChar  = 0;
@@ -407,13 +440,11 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             rect(0, 0, mW, mH, ov);
         }
 
-        // Sahne numarası — sağ üst köşe, padding içinde
         float snPS = gPS * 0.72f;
         float[] greyA = {C_GREY[0], C_GREY[1], C_GREY[2], 0.75f};
         String scn = (mCinemaScene + 1) + "/" + CINEMA_TEXT.length;
         drawString(scn, mW - mPad - charWidth(scn, snPS), mPad * 1.5f, snPS, greyA);
 
-        // ── Daktilo metni — word-wrapped, otomatik ölçekleme ─────────────
         String fullText = CINEMA_TEXT[mCinemaScene];
         String visible  = fullText.substring(0, Math.min(mCinemaChar, fullText.length()));
 
@@ -424,14 +455,12 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
         float lineH  = textPS * 11f;
         float totalH = lines.size() * lineH;
-        // Alt %45'e ortalı (üst kısmı arka plan görseli için bırak)
         float textY  = mH * 0.52f - totalH / 2f;
 
         for (int i = 0; i < lines.size(); i++) {
             drawStringC(lines.get(i), textY + i * lineH, textPS, C_GOLD);
         }
 
-        // Yanıp sönen imleç
         if (!mCinemaDone && (mFrame / 15) % 2 == 0) {
             String lastLine = lines.isEmpty() ? "" : lines.get(lines.size() - 1);
             float curX = mW/2f + charWidth(lastLine, textPS)/2f + textPS;
@@ -439,7 +468,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             rect(curX, curY, textPS, textPS * 8f, C_GOLD);
         }
 
-        // DEVAM butonu (metin bittiyse)
         if (mCinemaDone) {
             float bw = mUsableW * 0.42f;
             float bh = Math.max(gPS * 9f, mH * 0.06f);
@@ -447,13 +475,11 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             drawButton("DEVAM", bx, by, bw, bh, mSetHover == 99, false, false);
         }
 
-        // ATLA butonu (sol alt)
         float sw = mUsableW * 0.30f;
         float sh = Math.max(gPS * 7f, mH * 0.05f);
         float sx = mPad, sy = mH - sh - mPad * 2f;
         drawButton("ATLA", sx, sy, sw, sh, false, mSkipHeld, false);
 
-        // ATLA basılı tutma çubuğu
         if (mSkipHeld) {
             long held = System.currentTimeMillis() - mSkipStart;
             float prog = Math.min(1f, held / (float) SKIP_HOLD_MS);
@@ -478,7 +504,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 return;
             }
             if (!mCinemaDone) {
-                // Herhangi bir yere basınca metni tamamla
                 mCinemaChar = CINEMA_TEXT[mCinemaScene].length();
                 mCinemaDone = true;
                 return;
@@ -494,7 +519,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private void nextCinemaScene() {
         mCinemaScene++;
         if (mCinemaScene >= CINEMA_TEXT.length) {
-            mState = ST_GAME; // Tüm sahneler bitti → oyun
+            mState = ST_GAME;
         } else {
             mCinemaChar = 0;
             mCinemaDone = false;
@@ -508,8 +533,23 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    //  AYARLAR
+    //  AYARLAR  — Ses Slider + FPS Seçimi
     // ══════════════════════════════════════════════════════════════════════
+
+    /**
+     * Slider geometrisi — hem render hem touch paylaşır.
+     * Hesap: yatay merkez, mUsableW'nin %85'i genişlikte.
+     */
+    private float sliderX()  { return mW / 2f - sliderW() / 2f; }
+    private float sliderW()  { return mUsableW * 0.85f; }
+    private float sliderY()  { return mH * 0.42f; }
+    private float sliderH()  { return Math.max(gPS * 3f, 6f); }
+    private float thumbR()   { return Math.max(gPS * 4.5f, 10f); }
+
+    /** mVolume (0-1) → thumb merkez X */
+    private float volToThumbX() {
+        return sliderX() + mVolume * sliderW();
+    }
 
     private void renderSettings() {
         if (mTexMenuBg > 0) {
@@ -519,25 +559,62 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         }
 
         float cx = mW / 2f;
+
+        // ── Başlık ──────────────────────────────────────────────────────
         float titlePS = fitTextPS("AYARLAR", mUsableW * 0.60f, gPS * 1.6f);
         drawStringC("AYARLAR", mH * 0.14f, titlePS, C_GOLD);
 
+        // ── SES SEVİYESİ ETIKETI ────────────────────────────────────────
+        float labPS  = gPS * 0.72f;
+        float labY   = mH * 0.34f;
+        drawString("SES SEVIYESI:", mPad, labY, labPS, C_GOLD);
+
+        // Yüzde değeri — sağa hizalı
+        int pct = Math.round(mVolume * 100f);
+        String pctStr = "%" + pct;
+        float pctPS = fitTextPS(pctStr, mUsableW * 0.18f, labPS);
+        float pctX  = mW - mPad - charWidth(pctStr, pctPS);
+        drawString(pctStr, pctX, labY, pctPS, C_GOLD);
+
+        // ── SLIDER ──────────────────────────────────────────────────────
+        float sx = sliderX(), sw = sliderW();
+        float sy = sliderY(), sh = sliderH();
+        float tr = thumbR();
+        float thumbCX = volToThumbX();
+
+        // Track arka plan (koyu)
+        rect(sx, sy, sw, sh, C_DARK);
+        // Dolu kısım (altın)
+        float filled = mVolume * sw;
+        if (filled > 0) rect(sx, sy, filled, sh, C_GOLD);
+        // Track kenarlık
+        float brd = Math.max(1.5f, gPS * 0.3f);
+        rect(sx,      sy,      sw, brd, C_GDIM);
+        rect(sx,      sy+sh-brd, sw, brd, C_GDIM);
+        rect(sx,      sy,      brd, sh, C_GDIM);
+        rect(sx+sw-brd, sy,   brd, sh, C_GDIM);
+
+        // Thumb (kare — OpenGL ES 2.0'da daire zor, kare tutarlı)
+        float[] thumbCol = mSliderDragging ? C_GOLD : C_GDIM;
+        rect(thumbCX - tr, sy + sh/2f - tr, tr*2f, tr*2f, thumbCol);
+        // Thumb kenarlık
+        rect(thumbCX - tr,      sy + sh/2f - tr,      tr*2f, brd*1.5f, C_GOLD);
+        rect(thumbCX - tr,      sy + sh/2f + tr-brd*1.5f, tr*2f, brd*1.5f, C_GOLD);
+        rect(thumbCX - tr,      sy + sh/2f - tr,      brd*1.5f, tr*2f, C_GOLD);
+        rect(thumbCX + tr-brd*1.5f, sy + sh/2f - tr, brd*1.5f, tr*2f, C_GOLD);
+
+        // ── FPS SEÇİMİ ──────────────────────────────────────────────────
         float togW  = mUsableW * 0.28f;
         float togH  = Math.max(gPS * 9f, mH * 0.060f);
-        float togX0 = cx - togW - mPad;
-        float togX1 = cx + mPad;
-        float row1Y = mH * 0.36f;
-        float row2Y = mH * 0.52f;
-        float labPS = gPS * 0.72f;
-
-        drawString("SES:",  mPad, row1Y, labPS, C_GOLD);
-        drawButton("ACIK",   togX0, row1Y, togW, togH, mSetHover==0, mSetPress==0, !mSoundOn);
-        drawButton("KAPALI", togX1, row1Y, togW, togH, mSetHover==1, mSetPress==1,  mSoundOn);
+        float togX0 = cx - togW - mPad * 0.5f;
+        float togX1 = cx + mPad * 0.5f;
+        float row2Y = mH * 0.56f;
 
         drawString("FPS:", mPad, row2Y, labPS, C_GOLD);
         drawButton("30", togX0, row2Y, togW, togH, mSetHover==2, mSetPress==2, mFps!=30);
         drawButton("60", togX1, row2Y, togW, togH, mSetHover==3, mSetPress==3, mFps!=60);
 
+        // ── GERİ BUTONU ─────────────────────────────────────────────────
         float backW = mUsableW * 0.45f;
         float backH = Math.max(gPS * 9f, mH * 0.060f);
         drawButton("GERI", cx - backW/2f, mH * 0.76f, backW, backH,
@@ -550,34 +627,78 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         float cx    = mW / 2f;
         float togW  = mUsableW * 0.28f;
         float togH  = Math.max(gPS * 9f, mH * 0.060f);
-        float togX0 = cx - togW - mPad;
-        float togX1 = cx + mPad;
-        float row1Y = mH * 0.36f;
-        float row2Y = mH * 0.52f;
+        float togX0 = cx - togW - mPad * 0.5f;
+        float togX1 = cx + mPad * 0.5f;
+        float row2Y = mH * 0.56f;
         float backW = mUsableW * 0.45f;
         float backH = Math.max(gPS * 9f, mH * 0.060f);
         float backX = cx - backW/2f, backY = mH * 0.76f;
 
+        // Slider geometrisi
+        float sx = sliderX(), sw = sliderW();
+        float sy = sliderY(), sh = sliderH();
+        float tr = thumbR();
+        float thumbCX = volToThumbX();
+        // Thumb hit alanı biraz geniş tutulur — parmak hassasiyeti için
+        float hitPad = tr * 1.4f;
+
         if (action == MotionEvent.ACTION_DOWN) {
+            // Thumb üzerine mi basıldı?
+            if (x >= thumbCX - hitPad && x <= thumbCX + hitPad
+                    && y >= sy + sh/2f - hitPad && y <= sy + sh/2f + hitPad) {
+                mSliderDragging = true;
+                updateSliderFromX(x, sx, sw);
+                return;
+            }
+            // Track üzerine mi basıldı? (thumb dışı ama track içi → oraya atla)
+            if (hit(x, y, sx, sy - tr, sw, sh + tr*2f)) {
+                mSliderDragging = true;
+                updateSliderFromX(x, sx, sw);
+                return;
+            }
+
             mSetPress = -1;
-            if      (hit(x,y,togX0,row1Y,togW,togH)) mSetPress=0;
-            else if (hit(x,y,togX1,row1Y,togW,togH)) mSetPress=1;
-            else if (hit(x,y,togX0,row2Y,togW,togH)) mSetPress=2;
+            if      (hit(x,y,togX0,row2Y,togW,togH)) mSetPress=2;
             else if (hit(x,y,togX1,row2Y,togW,togH)) mSetPress=3;
             else if (hit(x,y,backX,backY,backW,backH)) mSetPress=10;
             mSetHover = mSetPress;
+
+        } else if (action == MotionEvent.ACTION_MOVE) {
+            if (mSliderDragging) {
+                updateSliderFromX(x, sx, sw);
+                return;
+            }
+            mSetHover = -1;
+            if      (hit(x,y,togX0,row2Y,togW,togH)) mSetHover=2;
+            else if (hit(x,y,togX1,row2Y,togW,togH)) mSetHover=3;
+            else if (hit(x,y,backX,backY,backW,backH)) mSetHover=10;
+
         } else if (action == MotionEvent.ACTION_UP) {
+            if (mSliderDragging) {
+                mSliderDragging = false;
+                updateSliderFromX(x, sx, sw);
+                return;
+            }
             int p = mSetPress; mSetPress = -1; mSetHover = -1;
             switch (p) {
-                case 0:  mSoundOn=true;  break;
-                case 1:  mSoundOn=false; break;
-                case 2:  mFps=30;        break;
-                case 3:  mFps=60;        break;
+                case 2:  mFps=30; break;
+                case 3:  mFps=60; break;
                 case 10: if (hit(x,y,backX,backY,backW,backH)) mState=ST_MENU; break;
             }
         } else if (action == MotionEvent.ACTION_CANCEL) {
+            mSliderDragging = false;
             mSetPress = -1; mSetHover = -1;
         }
+    }
+
+    /**
+     * Dokunma X koordinatından slider değerini güncelle.
+     * Değeri [0,1]'e kırpar, MusicController'a bildirir.
+     */
+    private void updateSliderFromX(float touchX, float trackX, float trackW) {
+        float raw = (touchX - trackX) / trackW;
+        mVolume = Math.max(0f, Math.min(1f, raw));
+        if (mMusic != null) mMusic.onVolumeChanged(mVolume);
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -601,7 +722,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    //  ÇİZİM YÖNTEMLERİ
+    //  ÇİZİM YÖNTEMLERİ  (değişmedi)
     // ══════════════════════════════════════════════════════════════════════
 
     private void rect(float x, float y, float w, float h, float[] c) {
@@ -647,7 +768,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         GLES20.glDisableVertexAttribArray(mLocTAUV);
     }
 
-    /** CRT tarama çizgisi efekti */
     private void scanLines() {
         float step = Math.max(2f, mH / 400f) * 3f;
         for (float y = 0; y < mH; y += step) {
@@ -656,28 +776,17 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    //  PİXEL FONT  (Segment tabanlı — rect() çağrılarıyla)
+    //  PİXEL FONT  (değişmedi)
     // ══════════════════════════════════════════════════════════════════════
 
-    /** Bir stringin piksel cinsinden toplam genişliği */
-    private float charWidth(String s, float ps) {
-        return s.length() * ps * 7f;
-    }
+    private float charWidth(String s, float ps) { return s.length() * ps * 7f; }
 
-    /**
-     * Verilen metin için maxW'ye sığacak en büyük ps'yi döndürür.
-     * maxPS'in üstüne çıkmaz.
-     */
     private float fitTextPS(String text, float maxW, float maxPS) {
         float needed = charWidth(text, maxPS);
         if (needed <= maxW) return maxPS;
         return maxPS * (maxW / needed);
     }
 
-    /**
-     * Word-wrap: metni maxLineW pikselini geçmeyecek şekilde satırlara böl.
-     * \n karakterine de saygı gösterir.
-     */
     private List<String> wrapText(String text, float maxLineW, float ps) {
         List<String> result = new ArrayList<>();
         for (String para : text.split("\n", -1)) {
@@ -711,7 +820,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         drawString(s, sx, y, ps, c);
     }
 
-    /** Ortalanmış + word-wrap */
     private void drawStringCWrapped(String s, float startY, float ps, float[] c) {
         List<String> lines = wrapText(s, mUsableW * 0.88f, ps);
         float lineH = ps * 10f;
@@ -768,6 +876,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             case '+': fH(x,y,ps,3,c);fV(x,y,ps,2,1,5,c);break;
             case '(': fH(x,y,ps,1,c);fH(x,y,ps,5,c);fV(x,y,ps,0,1,5,c);break;
             case ')': fH(x,y,ps,1,c);fH(x,y,ps,5,c);fV(x,y,ps,4,1,5,c);break;
+            case '%': fD(x,y,ps,0,0,c);fD(x,y,ps,1,0,c);fD(x,y,ps,0,1,c);fD(x,y,ps,1,1,c);fV(x,y,ps,4,0,2,c);fV(x,y,ps,3,2,4,c);fV(x,y,ps,2,4,5,c);fV(x,y,ps,1,5,6,c);fD(x,y,ps,3,5,c);fD(x,y,ps,4,5,c);fD(x,y,ps,3,6,c);fD(x,y,ps,4,6,c);break;
             case ' ': break;
             default:  fD(x,y,ps,2,3,c);break;
         }
@@ -778,7 +887,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private void fD(float x,float y,float ps,int col,int row,float[] c){ rect(x+col*ps,y+row*ps,ps,ps,c); }
 
     // ══════════════════════════════════════════════════════════════════════
-    //  BUTON
+    //  BUTON  (değişmedi)
     // ══════════════════════════════════════════════════════════════════════
 
     private void drawButton(String label, float x, float y, float w, float h,
@@ -794,14 +903,13 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         rect(x,     y,     b, h,   brd);
         rect(x+w-b, y,     b, h,   brd);
 
-        // Metni butona sığacak şekilde ölçekle
         float ps = fitTextPS(label, w * 0.78f, gPS * 0.80f);
         float tw = charWidth(label, ps);
         drawString(label, x + w/2f - tw/2f, y + h/2f - 3.5f*ps, ps, txt);
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    //  TEXTURE YÜKLEME
+    //  TEXTURE YÜKLEME  (değişmedi)
     // ══════════════════════════════════════════════════════════════════════
 
     private int loadTexture(String name) {
@@ -824,7 +932,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    //  SHADER DERLEME
+    //  SHADER DERLEME  (değişmedi)
     // ══════════════════════════════════════════════════════════════════════
 
     private int buildProgram(String vs, String fs) {
@@ -850,7 +958,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    //  YARDIMCI
+    //  YARDIMCI  (değişmedi)
     // ══════════════════════════════════════════════════════════════════════
 
     private boolean hit(float px, float py, float rx, float ry, float rw, float rh) {
