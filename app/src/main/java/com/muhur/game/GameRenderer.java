@@ -55,6 +55,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private static final int ST_CINEMA   = 2;
     private static final int ST_SETTINGS = 3;
     private static final int ST_GAME     = 4;
+    private static final int ST_FONTTEST = 5;  // Font test ekranı
 
     // ─── RENK PALETİ ───────────────────────────────────────────────────────
     private static final float[] C_BG   = {0.051f, 0.039f, 0.020f, 1.0f};
@@ -150,6 +151,22 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private int     mFps           = 60;
     private boolean mMusicStarted  = false;
 
+    // ─── FONT TEST ─────────────────────────────────────────────────────────
+    // Satır 1-2: Latin + Türkçe büyük harfler (ikişerli çiftler)
+    //   C+Ç, G+Ğ, I+İ, O+Ö, S+Ş, U+Ü yan yana → karşılaştırma kolay
+    // Satır 3: Rakamlar
+    // Satır 4: Noktalama işaretleri
+    private static final String[] FONT_TEST_LINES = {
+        "ABCC\u00C7DEFGG\u011EHHII\u0130",
+        "JKLMNOO\u00D6PRSS\u015ETUU\u00DCVYZ",
+        "0123456789",
+        ". , ! ? : ( ) - + / ="
+    };
+    private int  mFtChar  = 0;   // toplam karakter sayacı (tüm satırlar düzleştirilmiş)
+    private long mFtLast  = 0;   // son karakter zamanı
+    private boolean mFtDone = false;
+    private static final long FT_CHAR_MS = 40;  // daktilo hızı (ms/karakter)
+
     // Touch
     private float mTouchX, mTouchY;
     private int   mTouchAction = -1;
@@ -234,6 +251,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             case ST_CINEMA:   touchCinema(action, x, y, time); break;
             case ST_MENU:     touchMenu(action, x, y);         break;
             case ST_SETTINGS: touchSettings(action, x, y);     break;
+            case ST_FONTTEST: touchFontTest(action, x, y);     break;
         }
     }
 
@@ -243,8 +261,9 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
     private void update() {
         switch (mState) {
-            case ST_SPLASH: updateSplash(); break;
-            case ST_CINEMA: updateCinema(); break;
+            case ST_SPLASH:   updateSplash();   break;
+            case ST_CINEMA:   updateCinema();   break;
+            case ST_FONTTEST: updateFontTest(); break;
         }
     }
 
@@ -287,11 +306,12 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         GLES20.glClearColor(C_BG[0], C_BG[1], C_BG[2], 1f);
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
         switch (mState) {
-            case ST_SPLASH:   renderSplash();   break;
-            case ST_MENU:     renderMenu();     break;
-            case ST_CINEMA:   renderCinema();   break;
-            case ST_SETTINGS: renderSettings(); break;
-            case ST_GAME:     renderGame();     break;
+            case ST_SPLASH:   renderSplash();    break;
+            case ST_MENU:     renderMenu();      break;
+            case ST_CINEMA:   renderCinema();    break;
+            case ST_SETTINGS: renderSettings();  break;
+            case ST_FONTTEST: renderFontTest();  break;
+            case ST_GAME:     renderGame();      break;
         }
     }
 
@@ -508,7 +528,11 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private void nextCinemaScene() {
         mCinemaScene++;
         if (mCinemaScene >= CINEMA_TEXT.length) {
-            mState = ST_GAME;
+            // Sinematik bitti → Font test ekranına geç
+            mFtChar = 0;
+            mFtLast = System.currentTimeMillis();
+            mFtDone = false;
+            mState  = ST_FONTTEST;
         } else {
             mCinemaChar = 0;
             mCinemaDone = false;
@@ -518,7 +542,10 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
     private void skipAllCinema() {
         mSkipHeld = false;
-        mState    = ST_GAME;
+        mFtChar   = 0;
+        mFtLast   = System.currentTimeMillis();
+        mFtDone   = false;
+        mState    = ST_FONTTEST;
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -664,6 +691,129 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         float raw = (touchX - trackX) / trackW;
         mVolume = Math.max(0f, Math.min(1f, raw));
         if (mMusic != null) mMusic.onVolumeChanged(mVolume);
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    //  FONT TEST EKRANı
+    //
+    //  Sinematik bittikten sonra otomatik açılır.
+    //  3 satır alfabeyi daktilo efektiyle gösterir:
+    //    Satır 1: A-Z + Türkçe büyükler (ikişerli: Latin + Türkçe yan yana)
+    //    Satır 2: Rakamlar
+    //    Satır 3: Noktalama
+    //  Dokunulunca → metin tamamlanır / tamamlandıysa ST_GAME'e geçer.
+    //  Sol üst köşeye (mPad*3 kare) dokunulunca her zaman ST_GAME'e geçer.
+    // ══════════════════════════════════════════════════════════════════════
+
+    /**
+     * FONT_TEST_LINES'ın tüm karakterlerini tek bir düzleştirilmiş
+     * karakter dizisi olarak döndürür. Daktilo sayacı bunu kullanır.
+     */
+    private int ftTotalChars() {
+        int n = 0;
+        for (String s : FONT_TEST_LINES) n += s.length();
+        return n;
+    }
+
+    private void updateFontTest() {
+        if (mFtDone) return;
+        long now = System.currentTimeMillis();
+        if (now - mFtLast >= FT_CHAR_MS) {
+            mFtLast = now;
+            if (mFtChar < ftTotalChars()) mFtChar++;
+            else mFtDone = true;
+        }
+    }
+
+    private void renderFontTest() {
+        // ── Arka plan ───────────────────────────────────────────────────
+        float[] dimOv = {C_BG[0], C_BG[1], C_BG[2], 1.0f};
+        rect(0, 0, mW, mH, dimOv);
+
+        // ── Başlık ──────────────────────────────────────────────────────
+        float titlePS = fitTextPS("FONT TEST", mUsableW * 0.70f, gPS * 1.3f);
+        drawStringC("FONT TEST", mH * 0.06f, titlePS, C_GOLD);
+
+        // Altına ince çizgi
+        float lineY = mH * 0.06f + titlePS * 10f;
+        rect(mPad, lineY, mUsableW, Math.max(1f, gPS * 0.5f), C_GDIM);
+
+        // ── Satırları daktilo efektiyle çiz ─────────────────────────────
+        // Her satır için: ps = tüm satır mUsableW'ya sığacak şekilde hesaplanır
+        // Satırlar eşit aralıklı, ekranın %12-%85 arasına dağıtılır
+        float startY   = mH * 0.14f;
+        float maxLineH = (mH * 0.72f) / FONT_TEST_LINES.length;
+        float lineH    = maxLineH * 0.82f;  // satır içi yükseklik (boşluk bırak)
+
+        int charsLeft = mFtChar;  // kalan gösterilecek karakter sayısı
+
+        for (int li = 0; li < FONT_TEST_LINES.length; li++) {
+            String line = FONT_TEST_LINES[li];
+            float rowY  = startY + li * maxLineH;
+
+            // Bu satır için ps: satır mUsableW'ya sığsın, max gPS*1.05
+            float ps = fitTextPS(line, mUsableW * 0.92f, gPS * 1.05f);
+
+            // Kaç karakter gösterilecek?
+            int show = Math.min(charsLeft, line.length());
+            charsLeft -= show;
+            if (show <= 0) break;
+
+            String visible = line.substring(0, show);
+
+            // Satır içi baseline çizgisi (referans — hangi satırda olduğu belli olsun)
+            float baselineY = rowY + ps * 8f;
+            float[] baseCol = {C_GDIM[0], C_GDIM[1], C_GDIM[2], 0.25f};
+            rect(mPad, baselineY, mUsableW, Math.max(1f, gPS * 0.3f), baseCol);
+
+            // Karakterleri sol hizalı çiz
+            drawString(visible, mPad, rowY, ps, C_GOLD);
+
+            // Yanıp sönen imleç (bu satır henüz yazılıyorsa)
+            if (show < line.length() && (mFrame / 12) % 2 == 0) {
+                float curX = mPad + charWidth(visible, ps);
+                rect(curX, rowY, ps * 0.8f, ps * 9f, C_GOLD);
+            }
+        }
+
+        // ── Sağ alt: durum mesajı ────────────────────────────────────────
+        float infoPS = gPS * 0.58f;
+        float[] infoCol = {C_GREY[0], C_GREY[1], C_GREY[2], 0.70f};
+
+        if (!mFtDone) {
+            drawString("YAZILIYOR...", mPad, mH * 0.90f, infoPS, infoCol);
+        } else {
+            // Tamamlandıysa devam butonu göster
+            float bw = mUsableW * 0.50f;
+            float bh = Math.max(gPS * 9f, mH * 0.058f);
+            float bx = mW/2f - bw/2f, by = mH * 0.88f;
+            drawButton("DEVAM", bx, by, bw, bh, false, false, false);
+        }
+
+        // Sol üst köşe: gizli "atla" bölgesi (mPad*4 kare)
+        float[] skipCol = {C_GDIM[0], C_GDIM[1], C_GDIM[2], 0.12f};
+        rect(0, 0, mPad * 4f, mPad * 4f, skipCol);
+
+        scanLines();
+    }
+
+    private void touchFontTest(int action, float x, float y) {
+        if (action != MotionEvent.ACTION_UP) return;
+
+        // Sol üst gizli köşe → anında ST_GAME
+        if (hit(x, y, 0, 0, mPad * 4f, mPad * 4f)) {
+            mState = ST_GAME;
+            return;
+        }
+
+        if (!mFtDone) {
+            // Metin yazılıyorsa → anında tamamla
+            mFtChar = ftTotalChars();
+            mFtDone = true;
+        } else {
+            // Tamamlandıysa → oyuna geç
+            mState = ST_GAME;
+        }
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -832,11 +982,12 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
             // ── HARFLER ──────────────────────────────────────────────────
 
-            // A: iki bacak + üst çatı + orta köprü
+            // A: iki bacak (satır 1-7) + üst çatı + orta köprü
+            //   bacaklar satır 7'de biter → diğer harflerle aynı hiza
             case 'A':
-                pV(x,y,ps,0,1,8,c); pV(x,y,ps,4,1,8,c);
+                pV(x,y,ps,0,1,7,c); pV(x,y,ps,4,1,7,c);
                 pH(x,y,ps,1,c);
-                pHh(x,y,ps,5,c); rect(x,y+5*ps,ps*3f,T(ps),c);
+                pH(x,y,ps,4,c);   // orta köprü tam genişlikte
                 break;
 
             // B: sol dikey + üst/orta/alt yatay + sağ kısa dikey×2
@@ -852,11 +1003,16 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 pV(x,y,ps,0,1,7,c);
                 break;
 
-            // D: sol dikey + üst/alt yatay + sağ dikey (kısa, orta uzun)
+            // D: sol dikey + üst/alt KISA yatay (col0-col3) + sağ orta dikey
+            //   pH yerine rect kullanılır → üst/alt barlar col3'te biter
+            //   Bu şekilde O'dan net ayrılır: O'da tam pH var, D'de kısa bar+sağ dikey
             case 'D':
                 pV(x,y,ps,0,1,7,c);
-                pH(x,y,ps,1,c); pH(x,y,ps,7,c);
-                pV(x,y,ps,4,2,6,c);
+                rect(x, y+ps*1, ps*3.5f, T(ps), c);   // üst kısa bar (col0→col3)
+                rect(x, y+ps*7, ps*3.5f, T(ps), c);   // alt kısa bar (col0→col3)
+                pV(x,y,ps,4,2,6,c);                   // sağ orta dikey (köşe değil)
+                pV(x,y,ps,3,1,2,c);                   // sağ üst eğim
+                pV(x,y,ps,3,6,7,c);                   // sağ alt eğim
                 break;
 
             // E: sol dikey + üst/orta/alt yatay
@@ -901,12 +1057,17 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 pH(x,y,ps,7,c);
                 break;
 
-            // K: sol dikey + üst/alt çapraz kollar
+            // K: sol dikey + üst sağ kol (2 segment) + orta bağlantı + alt sağ kol (2 segment)
+            //   Üst kol: col2(satır1-2) → col3(satır1) → col4(satır1) ile belirgin
+            //   Alt kol: col2(satır5-6) → col3(satır6-7) → col4(satır7) ile simetrik
             case 'K':
                 pV(x,y,ps,0,1,7,c);
-                pV(x,y,ps,3,1,2,c); pV(x,y,ps,4,1,1,c);
-                pV(x,y,ps,2,3,4,c);
-                pV(x,y,ps,3,5,6,c); pV(x,y,ps,4,7,7,c);
+                // Üst kol: sola yakın → sağa çıkış
+                pV(x,y,ps,2,1,2,c); pV(x,y,ps,3,1,1,c);
+                // Orta kavuşma
+                pV(x,y,ps,1,3,5,c);
+                // Alt kol: sol → sağa iniş
+                pV(x,y,ps,2,5,6,c); pV(x,y,ps,3,6,7,c);
                 break;
 
             // L: sol dikey + alt yatay
@@ -923,12 +1084,14 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 pV(x,y,ps,2,3,4,c);
                 break;
 
-            // N: iki dış dikey + eğik çizgi
+            // N: iki dış dikey + eğik iç çizgi (3 belirgin segment)
+            //   İç çapraz col1(satır1-3) + col2(satır3-5) + col3(satır5-7)
+            //   Böylece eğri daha kalın ve okunaklı görünür
             case 'N':
                 pV(x,y,ps,0,1,7,c); pV(x,y,ps,4,1,7,c);
-                pV(x,y,ps,1,1,2,c);
-                pV(x,y,ps,2,3,4,c);
-                pV(x,y,ps,3,5,6,c);
+                pV(x,y,ps,1,1,3,c);
+                pV(x,y,ps,2,3,5,c);
+                pV(x,y,ps,3,5,7,c);
                 break;
 
             // O: çerçeve
@@ -1020,10 +1183,14 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
             // ── RAKAMLAR ─────────────────────────────────────────────────
 
+            // 0: O çerçevesi + içinde ters eğik çizgi (O'dan ayırt için)
+            //   sol üst → sağ alt yönünde 3 segment
             case '0':
                 pH(x,y,ps,1,c); pH(x,y,ps,7,c);
                 pV(x,y,ps,0,1,7,c); pV(x,y,ps,4,1,7,c);
-                pV(x,y,ps,2,3,4,c); pV(x,y,ps,3,4,5,c);
+                pV(x,y,ps,1,2,3,c);
+                pV(x,y,ps,2,4,4,c);
+                pV(x,y,ps,3,5,6,c);
                 break;
             case '1':
                 pV(x,y,ps,2,1,7,c);
