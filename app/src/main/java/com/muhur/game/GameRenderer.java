@@ -152,20 +152,22 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private boolean mMusicStarted  = false;
 
     // ─── FONT TEST ─────────────────────────────────────────────────────────
-    // Satır 1-2: Latin + Türkçe büyük harfler (ikişerli çiftler)
-    //   C+Ç, G+Ğ, I+İ, O+Ö, S+Ş, U+Ü yan yana → karşılaştırma kolay
-    // Satır 3: Rakamlar
-    // Satır 4: Noktalama işaretleri
+    // Satır 1-2: Büyük harfler + Türkçe büyük
+    // Satır 3-4: Küçük harfler + Türkçe küçük
+    // Satır 5:   Rakamlar
+    // Satır 6:   Noktalama + tırnak
     private static final String[] FONT_TEST_LINES = {
         "ABCC\u00C7DEFGG\u011EHHII\u0130",
         "JKLMNOO\u00D6PRSS\u015ETUU\u00DCVYZ",
+        "abc\u00E7defg\u011Fh\u0131ijklmn",
+        "oo\u00F6prs\u015Ftuu\u00FCvyz",
         "0123456789",
-        ". , ! ? : ( ) - + / ="
+        ". , ! ? : ( ) \" ' - + = /"
     };
-    private int  mFtChar  = 0;   // toplam karakter sayacı (tüm satırlar düzleştirilmiş)
-    private long mFtLast  = 0;   // son karakter zamanı
+    private int  mFtChar  = 0;
+    private long mFtLast  = 0;
     private boolean mFtDone = false;
-    private static final long FT_CHAR_MS = 40;  // daktilo hızı (ms/karakter)
+    private static final long FT_CHAR_MS = 40;
 
     // Touch
     private float mTouchX, mTouchY;
@@ -941,7 +943,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private void drawString(String s, float x, float y, float ps, float[] c) {
         float cx = x;
         for (int i = 0; i < s.length(); i++) {
-            drawChar(trUpper(s.charAt(i)), cx, y, ps, c);
+            drawChar(s.charAt(i), cx, y, ps, c);
             cx += ps * 8f;
         }
     }
@@ -1255,19 +1257,28 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 rect(x+ps*0.5f, y+ps*4, ps*4f, T(ps), c);
                 pV(x,y,ps,2,2,6,c);
                 break;
+            case '=':
+                rect(x+ps*0.5f, y+ps*3, ps*4f, T(ps), c);
+                rect(x+ps*0.5f, y+ps*5, ps*4f, T(ps), c);
+                break;
+
+            // ── Parantezler ──────────────────────────────────────────────
+            // (  : sol dikey col1, üst/alt kısa yatay col1-col0 sola uzanır
             case '(':
                 pV(x,y,ps,1,1,7,c);
-                pH(x,y,ps,1,c); pH(x,y,ps,7,c);
-                rect(x, y+ps, ps*2f, T(ps), c);
-                rect(x, y+ps*7, ps*2f, T(ps), c);
-                pV(x,y,ps,0,1,7,c);
+                rect(x+ps*1f, y+ps*1f, ps*1.5f, T(ps), c);  // üst yatay kısa (col1→col2)
+                rect(x+ps*1f, y+ps*7f, ps*1.5f, T(ps), c);  // alt yatay kısa
+                pV(x,y,ps,0,2,6,c);                          // sol kısa dikey (iç eğri)
                 break;
+
+            // )  : sağ dikey col3, üst/alt kısa yatay col3→col4 sağa uzanır
             case ')':
                 pV(x,y,ps,3,1,7,c);
-                rect(x+ps*3, y+ps, ps*2f, T(ps), c);
-                rect(x+ps*3, y+ps*7, ps*2f, T(ps), c);
-                pV(x,y,ps,4,1,7,c);
+                rect(x+ps*2f, y+ps*1f, ps*1.5f, T(ps), c);  // üst yatay kısa (col2→col3)
+                rect(x+ps*2f, y+ps*7f, ps*1.5f, T(ps), c);  // alt yatay kısa
+                pV(x,y,ps,4,2,6,c);                          // sağ kısa dikey (iç eğri)
                 break;
+
             case '%':
                 pD(x,y,ps,0,1,c); pD(x,y,ps,1,1,c);
                 pD(x,y,ps,0,2,c); pD(x,y,ps,1,2,c);
@@ -1275,104 +1286,307 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 pD(x,y,ps,3,5,c); pD(x,y,ps,4,5,c);
                 pD(x,y,ps,3,6,c); pD(x,y,ps,4,6,c);
                 break;
+
+            // ── Tırnak işaretleri ─────────────────────────────────────────
+            // "  çift tırnak: iki kısa dikey sütun 1 ve 3, satır 1-2
+            case '"':
+                pV(x,y,ps,1,1,2,c);
+                pV(x,y,ps,3,1,2,c);
+                break;
+            // '  tek tırnak: kısa dikey sütun 2, satır 1-2
+            case '\'':
+                pV(x,y,ps,2,1,2,c);
+                break;
+
             case ' ': break;
 
             // ══════════════════════════════════════════════════════════════
-            //  TÜRKÇE KARAKTERLER — 5×9 Grid, satır 0-8 içinde
-            //
-            //  Aksanlar grid'de şu satırlara yerleşir:
-            //    Satır 0   → üst işaret (nokta, breve/kemer, umlaut/iki nokta)
-            //    Satır 1-7 → harf gövdesi (Latin tabanıyla birebir aynı)
-            //    Satır 8   → alt işaret (cedilla — kanca gövde içinde biter)
-            //
-            //  Satır yüksekliği = 9 birim (0-8), drawString adımı bozulmaz.
+            //  TÜRKÇE BÜYÜK HARFLER — 5×9 Grid, satır 0-8 içinde
             // ══════════════════════════════════════════════════════════════
 
-            // ── Ç  (C + alt cedilla) ─────────────────────────────────────
-            //  Gövde: C harfi (satır 1-7)
-            //  Cedilla: satır 7-8'de orta sütunda küçük kanca
-            //    • col2 satır7-8: dikey küçük çıkıntı
-            //    • col1 satır8: sol kanca ucu (yatay köprü)
-            //  Tüm çizim satır 0-8 içinde kalır.
             case '\u00C7': // Ç
-            case '\u00E7': // ç
-                // C gövdesi
                 pH(x,y,ps,1,c); pH(x,y,ps,7,c);
                 pV(x,y,ps,0,1,7,c);
-                // Cedilla: satır 7 altında küçük kanca (satır 8 içinde)
-                pD(x,y,ps,2,8,c);               // merkez çıkıntı
-                rect(x+ps*1f, y+ps*8f+T(ps)*0.5f, ps*1.5f, T(ps)*0.6f, c); // sol yatay kanca
-                break;
-
-            // ── Ğ  (G + üst breve/kemer) ─────────────────────────────────
-            //  Gövde: G harfi (satır 1-7)
-            //  Breve (kemer): satır 0'da yay şeklinde
-            //    • İki uç nokta: col1 ve col3 (satır 0)
-            //    • Aralarını bağlayan yatay köprü: col1-col3 arası, satır 0 ortasında
-            //  Tüm çizim satır 0-8 içinde kalır.
-            case '\u011E': // Ğ
-            case '\u011F': // ğ
-                // G gövdesi
-                pH(x,y,ps,1,c); pH(x,y,ps,7,c);
-                pV(x,y,ps,0,1,7,c);
-                pV(x,y,ps,4,5,7,c);
-                rect(x+ps*2.5f, y+ps*4, ps*2.5f+T(ps), T(ps), c);
-                // Breve: satır 0'da iki uç + köprü
-                pD(x,y,ps,1,0,c);                               // sol uç
-                pD(x,y,ps,3,0,c);                               // sağ uç
-                rect(x+ps*2f, y+ps*0f+T(ps)*0.4f, ps*1.5f, T(ps)*0.7f, c); // köprü
-                break;
-
-            // ── İ  (I + üst nokta) ───────────────────────────────────────
-            //  Gövde: I harfi (satır 1-7)
-            //  Nokta: col2 satır 0 → tek pD, grid içinde
-            case '\u0130': // İ  (noktalı büyük I)
-                pH(x,y,ps,1,c); pH(x,y,ps,7,c);
-                pV(x,y,ps,2,1,7,c);
-                pD(x,y,ps,2,0,c);   // üst nokta
-                break;
-
-            // ── I  (noktasız büyük I — ı'nın büyüğü) ────────────────────
-            //  trUpper() '\u0131' → 'I' çevirir, buraya düşer.
-            //  Standart I harfi, nokta yok. (case 'I' zaten yukarıda var)
-
-            // ── Ö  (O + üst iki nokta/umlaut) ────────────────────────────
-            //  Gövde: O harfi (satır 1-7)
-            //  Umlaut: col1 ve col3 satır 0 → iki ayrı pD
-            case '\u00D6': // Ö
-            case '\u00F6': // ö
-                pH(x,y,ps,1,c); pH(x,y,ps,7,c);
-                pV(x,y,ps,0,1,7,c); pV(x,y,ps,4,1,7,c);
-                pD(x,y,ps,1,0,c);   // sol nokta
-                pD(x,y,ps,3,0,c);   // sağ nokta
-                break;
-
-            // ── Ş  (S + alt cedilla) ─────────────────────────────────────
-            //  Gövde: S harfi (satır 1-7)
-            //  Cedilla: Ç ile aynı çizim mantığı — satır 8 içinde kalır
-            case '\u015E': // Ş
-            case '\u015F': // ş
-                // S gövdesi
-                pH(x,y,ps,1,c); pH(x,y,ps,4,c); pH(x,y,ps,7,c);
-                pV(x,y,ps,0,1,4,c);
-                pV(x,y,ps,4,4,7,c);
-                // Cedilla (Ç ile aynı)
                 pD(x,y,ps,2,8,c);
                 rect(x+ps*1f, y+ps*8f+T(ps)*0.5f, ps*1.5f, T(ps)*0.6f, c);
                 break;
 
-            // ── Ü  (U + üst iki nokta/umlaut) ────────────────────────────
-            //  Gövde: U harfi (satır 1-7)
-            //  Umlaut: col1 ve col3 satır 0 → iki ayrı pD
-            case '\u00DC': // Ü
-            case '\u00FC': // ü
-                pV(x,y,ps,0,1,7,c); pV(x,y,ps,4,1,7,c);
-                pH(x,y,ps,7,c);
-                pD(x,y,ps,1,0,c);   // sol nokta
-                pD(x,y,ps,3,0,c);   // sağ nokta
+            case '\u011E': // Ğ
+                pH(x,y,ps,1,c); pH(x,y,ps,7,c);
+                pV(x,y,ps,0,1,7,c);
+                pV(x,y,ps,4,5,7,c);
+                rect(x+ps*2.5f, y+ps*4, ps*2.5f+T(ps), T(ps), c);
+                pD(x,y,ps,1,0,c);
+                pD(x,y,ps,3,0,c);
+                rect(x+ps*2f, y+ps*0f+T(ps)*0.4f, ps*1.5f, T(ps)*0.7f, c);
                 break;
 
-            // ── Bilinmeyen karakter → merkez nokta ───────────────────────
+            case '\u0130': // İ
+                pH(x,y,ps,1,c); pH(x,y,ps,7,c);
+                pV(x,y,ps,2,1,7,c);
+                pD(x,y,ps,2,0,c);
+                break;
+
+            case '\u00D6': // Ö
+                pH(x,y,ps,1,c); pH(x,y,ps,7,c);
+                pV(x,y,ps,0,1,7,c); pV(x,y,ps,4,1,7,c);
+                pD(x,y,ps,1,0,c);
+                pD(x,y,ps,3,0,c);
+                break;
+
+            case '\u015E': // Ş
+                pH(x,y,ps,1,c); pH(x,y,ps,4,c); pH(x,y,ps,7,c);
+                pV(x,y,ps,0,1,4,c);
+                pV(x,y,ps,4,4,7,c);
+                pD(x,y,ps,2,8,c);
+                rect(x+ps*1f, y+ps*8f+T(ps)*0.5f, ps*1.5f, T(ps)*0.6f, c);
+                break;
+
+            case '\u00DC': // Ü
+                pV(x,y,ps,0,1,7,c); pV(x,y,ps,4,1,7,c);
+                pH(x,y,ps,7,c);
+                pD(x,y,ps,1,0,c);
+                pD(x,y,ps,3,0,c);
+                break;
+
+            // ══════════════════════════════════════════════════════════════
+            //  KÜÇÜK HARFLER  — 5×9 Grid
+            //
+            //  Yükseklik kuralları:
+            //    Kısa gövde (a,c,e,m,n,o,r,s,u,v,w,x,z) : satır 3-7
+            //    Uzun gövde (b,d,f,h,k,l,t)              : satır 2-7
+            //    İnen harf  (g,j,p,q,y)                  : satır 3-7 gövde + satır 7-8 inen
+            //
+            //  Türkçe küçük harfler (ç,ğ,ı,ö,ş,ü) büyük harflerle aynı
+            //  glyph'i paylaşır (zaten trUpper çağrılmıyor, case fall-through ile yönetilir).
+            // ══════════════════════════════════════════════════════════════
+
+            // a: kısa O + sağ dikey
+            case 'a':
+                pH(x,y,ps,3,c); pH(x,y,ps,7,c);
+                pV(x,y,ps,0,3,7,c); pV(x,y,ps,4,3,7,c);
+                break;
+
+            // b: uzun sol dikey + alt yarı kapalı (büyük P'nin alt sürümü)
+            case 'b':
+                pV(x,y,ps,0,2,7,c);
+                pH(x,y,ps,4,c); pH(x,y,ps,7,c);
+                pV(x,y,ps,4,4,7,c);
+                break;
+
+            // c: kısa C
+            case 'c':
+                pH(x,y,ps,3,c); pH(x,y,ps,7,c);
+                pV(x,y,ps,0,3,7,c);
+                break;
+
+            // ç: kısa C + cedilla
+            case '\u00E7':
+                pH(x,y,ps,3,c); pH(x,y,ps,7,c);
+                pV(x,y,ps,0,3,7,c);
+                pD(x,y,ps,2,8,c);
+                rect(x+ps*1f, y+ps*8f+T(ps)*0.5f, ps*1.5f, T(ps)*0.6f, c);
+                break;
+
+            // d: uzun sağ dikey + üst yarı kapalı (b'nin aynası)
+            case 'd':
+                pV(x,y,ps,4,2,7,c);
+                pH(x,y,ps,3,c); pH(x,y,ps,7,c);
+                pV(x,y,ps,0,3,7,c);
+                break;
+
+            // e: kısa O + orta çizgi + sağ üst açık
+            case 'e':
+                pH(x,y,ps,3,c); pH(x,y,ps,5,c); pH(x,y,ps,7,c);
+                pV(x,y,ps,0,3,7,c);
+                pV(x,y,ps,4,3,5,c);
+                break;
+
+            // f: uzun sol dikey + üst yatay + orta yatay kısa
+            case 'f':
+                pV(x,y,ps,1,2,7,c);
+                pH(x,y,ps,2,c);
+                rect(x+ps*1f, y+ps*4, ps*3f, T(ps), c);
+                break;
+
+            // g: inen harf — kısa O gövde + sağ dikey iner, alt yatay
+            case 'g':
+                pH(x,y,ps,3,c); pH(x,y,ps,7,c);
+                pV(x,y,ps,0,3,7,c); pV(x,y,ps,4,3,8,c);
+                pH(x,y,ps,8,c);  // alt yatay (inen kısım)
+                break;
+
+            // ğ: g + üst breve
+            case '\u011F':
+                pH(x,y,ps,3,c); pH(x,y,ps,7,c);
+                pV(x,y,ps,0,3,7,c); pV(x,y,ps,4,3,8,c);
+                pH(x,y,ps,8,c);
+                pD(x,y,ps,1,2,c); pD(x,y,ps,3,2,c);
+                rect(x+ps*2f, y+ps*2f+T(ps)*0.4f, ps*1.5f, T(ps)*0.7f, c);
+                break;
+
+            // h: uzun sol dikey + sağ kısa (satır 4-7)
+            case 'h':
+                pV(x,y,ps,0,2,7,c);
+                pH(x,y,ps,4,c);
+                pV(x,y,ps,4,4,7,c);
+                break;
+
+            // ı: noktasız i — kısa merkez dikey
+            case '\u0131':
+                pV(x,y,ps,2,3,7,c);
+                break;
+
+            // i: noktalı i — kısa merkez dikey + nokta
+            case 'i':
+                pV(x,y,ps,2,3,7,c);
+                pD(x,y,ps,2,2,c);  // nokta satır 2'de (gövdenin hemen üstü)
+                break;
+
+            // j: inen harf — sağ kısa dikey + nokta + inen sol kanca
+            case 'j':
+                pV(x,y,ps,3,3,7,c);
+                pD(x,y,ps,3,2,c);
+                pV(x,y,ps,0,7,8,c);
+                rect(x+ps*1f, y+ps*8f, ps*2f, T(ps), c);
+                break;
+
+            // k: uzun sol dikey + kollar (küçük versiyon)
+            case 'k':
+                pV(x,y,ps,0,2,7,c);
+                pV(x,y,ps,2,4,5,c);
+                pV(x,y,ps,3,3,4,c); pV(x,y,ps,4,3,3,c);
+                pV(x,y,ps,3,5,6,c); pV(x,y,ps,4,7,7,c);
+                break;
+
+            // l: uzun ince dikey
+            case 'l':
+                pV(x,y,ps,2,2,7,c);
+                break;
+
+            // m: kısa iki tepe (M'nin küçüğü, satır 3-7)
+            case 'm':
+                pV(x,y,ps,0,3,7,c); pV(x,y,ps,4,3,7,c);
+                pV(x,y,ps,1,3,5,c); pV(x,y,ps,3,3,5,c);
+                pV(x,y,ps,2,5,7,c);
+                break;
+
+            // n: iki kısa dikey + üst köprü
+            case 'n':
+                pV(x,y,ps,0,3,7,c); pV(x,y,ps,4,3,7,c);
+                pH(x,y,ps,3,c);
+                break;
+
+            // o: kısa O çerçeve
+            case 'o':
+                pH(x,y,ps,3,c); pH(x,y,ps,7,c);
+                pV(x,y,ps,0,3,7,c); pV(x,y,ps,4,3,7,c);
+                break;
+
+            // ö: kısa O + umlaut
+            case '\u00F6':
+                pH(x,y,ps,3,c); pH(x,y,ps,7,c);
+                pV(x,y,ps,0,3,7,c); pV(x,y,ps,4,3,7,c);
+                pD(x,y,ps,1,2,c); pD(x,y,ps,3,2,c);
+                break;
+
+            // p: inen harf — uzun sol dikey (iner) + üst yarı kapalı
+            case 'p':
+                pV(x,y,ps,0,3,8,c);
+                pH(x,y,ps,3,c); pH(x,y,ps,6,c);
+                pV(x,y,ps,4,3,6,c);
+                break;
+
+            // q: inen harf — uzun sağ dikey (iner) + üst yarı kapalı
+            case 'q':
+                pV(x,y,ps,4,3,8,c);
+                pH(x,y,ps,3,c); pH(x,y,ps,6,c);
+                pV(x,y,ps,0,3,6,c);
+                break;
+
+            // r: kısa sol dikey + üst sağ çıkıntı
+            case 'r':
+                pV(x,y,ps,0,3,7,c);
+                pH(x,y,ps,3,c);
+                pV(x,y,ps,3,3,4,c);
+                break;
+
+            // s: kısa S
+            case 's':
+                pH(x,y,ps,3,c); pH(x,y,ps,5,c); pH(x,y,ps,7,c);
+                pV(x,y,ps,0,3,5,c);
+                pV(x,y,ps,4,5,7,c);
+                break;
+
+            // ş: kısa S + cedilla
+            case '\u015F':
+                pH(x,y,ps,3,c); pH(x,y,ps,5,c); pH(x,y,ps,7,c);
+                pV(x,y,ps,0,3,5,c);
+                pV(x,y,ps,4,5,7,c);
+                pD(x,y,ps,2,8,c);
+                rect(x+ps*1f, y+ps*8f+T(ps)*0.5f, ps*1.5f, T(ps)*0.6f, c);
+                break;
+
+            // t: uzun merkez dikey + üst yatay kısa
+            case 't':
+                pV(x,y,ps,2,2,7,c);
+                rect(x+ps*1f, y+ps*3, ps*3f, T(ps), c);
+                break;
+
+            // u: iki kısa dikey + alt yatay
+            case 'u':
+                pV(x,y,ps,0,3,7,c); pV(x,y,ps,4,3,7,c);
+                pH(x,y,ps,7,c);
+                break;
+
+            // ü: u + umlaut
+            case '\u00FC':
+                pV(x,y,ps,0,3,7,c); pV(x,y,ps,4,3,7,c);
+                pH(x,y,ps,7,c);
+                pD(x,y,ps,1,2,c); pD(x,y,ps,3,2,c);
+                break;
+
+            // v: kısa V
+            case 'v':
+                pV(x,y,ps,0,3,5,c); pV(x,y,ps,4,3,5,c);
+                pV(x,y,ps,1,6,6,c); pV(x,y,ps,3,6,6,c);
+                pV(x,y,ps,2,7,7,c);
+                break;
+
+            // w: kısa W
+            case 'w':
+                pV(x,y,ps,0,3,7,c); pV(x,y,ps,4,3,7,c);
+                pV(x,y,ps,1,5,7,c); pV(x,y,ps,3,5,7,c);
+                pV(x,y,ps,2,4,5,c);
+                break;
+
+            // x: kısa çapraz çift
+            case 'x':
+                pV(x,y,ps,0,3,4,c); pV(x,y,ps,4,3,4,c);
+                pV(x,y,ps,1,4,5,c); pV(x,y,ps,3,4,5,c);
+                pV(x,y,ps,2,5,5,c);
+                pV(x,y,ps,1,5,6,c); pV(x,y,ps,3,5,6,c);
+                pV(x,y,ps,0,6,7,c); pV(x,y,ps,4,6,7,c);
+                break;
+
+            // y: inen harf — üst çatal + inen merkez
+            case 'y':
+                pV(x,y,ps,0,3,5,c); pV(x,y,ps,4,3,5,c);
+                pV(x,y,ps,1,5,6,c); pV(x,y,ps,3,5,6,c);
+                pV(x,y,ps,2,6,8,c);
+                break;
+
+            // z: kısa Z
+            case 'z':
+                pH(x,y,ps,3,c); pH(x,y,ps,7,c);
+                pV(x,y,ps,3,4,5,c);
+                pV(x,y,ps,2,5,6,c);
+                pV(x,y,ps,1,6,7,c);
+                pV(x,y,ps,4,3,4,c);
+                pV(x,y,ps,0,6,7,c);
+                break;
+
+            // Bilinmeyen karakter → merkez nokta
             default: pD(x,y,ps,2,4,c); break;
         }
     }
