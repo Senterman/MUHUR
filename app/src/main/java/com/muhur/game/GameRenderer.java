@@ -21,33 +21,31 @@ import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
 /**
- * MÜHÜR — GameRenderer  (Revizyon 3)
+ * MÜHÜR — GameRenderer  (Revizyon 4)
  *
  * Değişiklikler:
- *   1. MusicController interface eklendi — Activity'ye bağımlı olmadan ses yönetimi
- *   2. Ayarlar: Ses Aç/Kapat → %0-%100 Slider (SharedPreferences ile senkronize)
- *   3. Slider dokunma mantığı: sürükleme, tek dokunuş, hassas pozisyon hesabı
- *   4. Müzik: menü ekranına geçişte MusicController.onMusicStart() tetiklenir
+ *   1. Türkçe font sistemi tamamen gözden geçirildi — 5×9 grid'e tam uyum.
+ *   2. Ç/Ş cedilla: satır-9 kaldırıldı; cedilla tamamen satır 7-8 içinde.
+ *   3. Ğ breve: kemer satır-0'da, iki uç pD + aralarında rect köprü.
+ *   4. İ nokta: satır-0'da tek pD, grid dışına taşmıyor.
+ *   5. Ö/Ü umlaut: iki ayrı pD satır-0'da, sütun-1 ve sütun-3.
+ *   6. Tüm Türkçe harfler 9 birim yüksekliğini korur; satır hizası bozulmaz.
  *
  * Korunan / DEĞİŞMEYEN:
  *   - Tüm state machine akışı (ST_SPLASH → ST_MENU → ST_CINEMA → ST_GAME)
- *   - Shader'lar, texture yükleme, font sistemi, scanLines, CRT efekti
+ *   - Shader'lar, texture yükleme, scanLines, CRT efekti
  *   - fitTextPS(), wrapText(), drawButton(), tüm çizim primitifleri
+ *   - MusicController interface ve ses slider sistemi
  */
 public class GameRenderer implements GLSurfaceView.Renderer {
 
     // ══════════════════════════════════════════════════════════════════════
     //  MUSICController INTERFACE
-    //  GameActivity bu interface'i implement eder.
-    //  Renderer, Activity'ye doğrudan referans tutmaz — sadece bu interface.
     // ══════════════════════════════════════════════════════════════════════
 
     public interface MusicController {
-        /** Menü ekranına ilk geçişte çağrılır — müziği başlat */
         void onMusicStart();
-        /** Slider değişince çağrılır (0.0 – 1.0) */
         void onVolumeChanged(float volume);
-        /** Renderer başlangıçta mevcut sesi sorgular */
         float getVolume();
     }
 
@@ -69,12 +67,12 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
     // ─── SİNEMATİK VERİ ────────────────────────────────────────────────────
     private static final String[] CINEMA_TEXT = {
-        "YIL 1999. PARALEL TURKIYE.\nBIR DARBE OLDU.\nAMA KIMSE KONUSMUYOR.",
-        "YENI BIR DUZEN ILAN EDILDI.\nKURALLAR DEGISTI.\nSENIN KURALLARIN DA.",
-        "BUROKRATIN MASASINDA\nBIR MUHUR VAR.\nO MUHUR SENIN.",
-        "HALK SORMUYOR.\nHALK BEKLIYOR.\nSEN KARAR VERECEKSIN.",
-        "GOLGEDEKI SESLER BUYUYOR.\nMUHALEFET ORGULUYOR.\nYA SEN?",
-        "ISTE O MUHUR.\nKADERIN, MUHRURUN UCUNDA."
+        "YIL 1999. PARALEL TÜRKİYE.\nBİR DARBE OLDU.\nAMA KİMSE KONUŞMUYOR.",
+        "YENİ BİR DÜZEN İLAN EDİLDİ.\nKURALLAR DEĞİŞTİ.\nSENİN KURALLARIN DA.",
+        "BÜROKRATI'IN MASASINDA\nBİR MÜHÜR VAR.\nO MÜHÜR SENİN.",
+        "HALK SORMUYOR.\nHALK BEKLİYOR.\nSEN KARAR VERECEKSIN.",
+        "GÖLGEDEKİ SESLER BÜYÜYOR.\nMUHALEFET ÖRGÜTLÜYOR.\nYA SEN?",
+        "İŞTE O MÜHÜR.\nKADERİN, MÜHÜRÜN UCUNDA."
     };
     private static final String[] CINEMA_ASSETS = {
         "story_bg_1.png","story_bg_2.png","story_bg_3.png",
@@ -147,14 +145,10 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private int mSetHover  = -1, mSetPress  = -1;
 
     // ─── SES SLIDER ────────────────────────────────────────────────────────
-    /** Mevcut ses seviyesi — MusicController'dan başlangıçta yüklenir */
-    private float mVolume = 0.75f;
-    /** Slider sürükleniyor mu? */
+    private float   mVolume        = 0.75f;
     private boolean mSliderDragging = false;
-    /** FPS ayarı (değişmedi) */
-    private int mFps = 60;
-    /** Müzik daha önce başlatıldı mı? (tekrar başlatmamak için) */
-    private boolean mMusicStarted = false;
+    private int     mFps           = 60;
+    private boolean mMusicStarted  = false;
 
     // Touch
     private float mTouchX, mTouchY;
@@ -173,7 +167,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         mCtx    = ctx;
         mAssets = ctx.getAssets();
         mMusic  = music;
-        // Kayıtlı ses seviyesini hemen oku
         if (mMusic != null) mVolume = mMusic.getVolume();
 
         for (int i = 0; i < 6; i++) mTexCinema[i] = -1;
@@ -264,7 +257,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             mFrame = 0;
             mState     = ST_MENU;
             mMenuHover = mMenuPress = -1;
-            // ← Müziği başlat (sadece bir kez)
             triggerMusicStart();
         }
     }
@@ -280,7 +272,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         }
     }
 
-    /** Müziği sadece bir kez başlat */
     private void triggerMusicStart() {
         if (!mMusicStarted && mMusic != null) {
             mMusicStarted = true;
@@ -340,7 +331,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     //  ANA MENÜ
     // ══════════════════════════════════════════════════════════════════════
 
-    private static final String[] MENU_LABELS = { "YENİ OYUN","DEVAM ET","AYARLAR","CIKIS" };
+    private static final String[] MENU_LABELS = { "YENİ OYUN","DEVAM ET","AYARLAR","ÇIKIŞ" };
 
     private void renderMenu() {
         if (mTexMenuBg > 0) {
@@ -351,10 +342,10 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
         float cx = mW / 2f;
 
-        float titlePS = fitTextPS("MUHUR", mUsableW * 0.80f, gPS * 2.0f);
-        drawStringC("MUHUR", mH * 0.16f, titlePS, C_GOLD);
+        float titlePS = fitTextPS("MÜHÜR", mUsableW * 0.80f, gPS * 2.0f);
+        drawStringC("MÜHÜR", mH * 0.16f, titlePS, C_GOLD);
 
-        drawStringCWrapped("KADERIN, MUHRURUN UCUNDA.",
+        drawStringCWrapped("KADERİN, MÜHÜRÜN UCUNDA.",
                 mH * 0.29f, gPS * 0.68f, C_GDIM);
 
         float devPS = fitTextPS("BONECASTOFFICIAL", mUsableW * 0.68f, gPS * 0.58f);
@@ -403,9 +394,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             if (p < 0) return;
             if (!hit(x, y, bx, startY + p * gap, bw, bh)) return;
             switch (p) {
-                case 0:
-                    startCinema();
-                    break;
+                case 0: startCinema(); break;
                 case 1: break; // Devam Et pasif
                 case 2:
                     mSetHover = mSetPress = -1;
@@ -536,17 +525,12 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     //  AYARLAR  — Ses Slider + FPS Seçimi
     // ══════════════════════════════════════════════════════════════════════
 
-    /**
-     * Slider geometrisi — hem render hem touch paylaşır.
-     * Hesap: yatay merkez, mUsableW'nin %85'i genişlikte.
-     */
     private float sliderX()  { return mW / 2f - sliderW() / 2f; }
     private float sliderW()  { return mUsableW * 0.85f; }
     private float sliderY()  { return mH * 0.42f; }
     private float sliderH()  { return Math.max(gPS * 3f, 6f); }
     private float thumbR()   { return Math.max(gPS * 4.5f, 10f); }
 
-    /** mVolume (0-1) → thumb merkez X */
     private float volToThumbX() {
         return sliderX() + mVolume * sliderW();
     }
@@ -560,50 +544,40 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
         float cx = mW / 2f;
 
-        // ── Başlık ──────────────────────────────────────────────────────
         float titlePS = fitTextPS("AYARLAR", mUsableW * 0.60f, gPS * 1.6f);
         drawStringC("AYARLAR", mH * 0.14f, titlePS, C_GOLD);
 
-        // ── SES SEVİYESİ ETIKETI ────────────────────────────────────────
         float labPS  = gPS * 0.72f;
         float labY   = mH * 0.34f;
-        drawString("SES SEVIYESI:", mPad, labY, labPS, C_GOLD);
+        drawString("SES SEVİYESİ:", mPad, labY, labPS, C_GOLD);
 
-        // Yüzde değeri — sağa hizalı
         int pct = Math.round(mVolume * 100f);
         String pctStr = "%" + pct;
         float pctPS = fitTextPS(pctStr, mUsableW * 0.18f, labPS);
         float pctX  = mW - mPad - charWidth(pctStr, pctPS);
         drawString(pctStr, pctX, labY, pctPS, C_GOLD);
 
-        // ── SLIDER ──────────────────────────────────────────────────────
         float sx = sliderX(), sw = sliderW();
         float sy = sliderY(), sh = sliderH();
         float tr = thumbR();
         float thumbCX = volToThumbX();
 
-        // Track arka plan (koyu)
         rect(sx, sy, sw, sh, C_DARK);
-        // Dolu kısım (altın)
         float filled = mVolume * sw;
         if (filled > 0) rect(sx, sy, filled, sh, C_GOLD);
-        // Track kenarlık
         float brd = Math.max(1.5f, gPS * 0.3f);
         rect(sx,      sy,      sw, brd, C_GDIM);
         rect(sx,      sy+sh-brd, sw, brd, C_GDIM);
         rect(sx,      sy,      brd, sh, C_GDIM);
         rect(sx+sw-brd, sy,   brd, sh, C_GDIM);
 
-        // Thumb (kare — OpenGL ES 2.0'da daire zor, kare tutarlı)
         float[] thumbCol = mSliderDragging ? C_GOLD : C_GDIM;
         rect(thumbCX - tr, sy + sh/2f - tr, tr*2f, tr*2f, thumbCol);
-        // Thumb kenarlık
         rect(thumbCX - tr,      sy + sh/2f - tr,      tr*2f, brd*1.5f, C_GOLD);
         rect(thumbCX - tr,      sy + sh/2f + tr-brd*1.5f, tr*2f, brd*1.5f, C_GOLD);
         rect(thumbCX - tr,      sy + sh/2f - tr,      brd*1.5f, tr*2f, C_GOLD);
         rect(thumbCX + tr-brd*1.5f, sy + sh/2f - tr, brd*1.5f, tr*2f, C_GOLD);
 
-        // ── FPS SEÇİMİ ──────────────────────────────────────────────────
         float togW  = mUsableW * 0.28f;
         float togH  = Math.max(gPS * 9f, mH * 0.060f);
         float togX0 = cx - togW - mPad * 0.5f;
@@ -614,10 +588,9 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         drawButton("30", togX0, row2Y, togW, togH, mSetHover==2, mSetPress==2, mFps!=30);
         drawButton("60", togX1, row2Y, togW, togH, mSetHover==3, mSetPress==3, mFps!=60);
 
-        // ── GERİ BUTONU ─────────────────────────────────────────────────
         float backW = mUsableW * 0.45f;
         float backH = Math.max(gPS * 9f, mH * 0.060f);
-        drawButton("GERI", cx - backW/2f, mH * 0.76f, backW, backH,
+        drawButton("GERİ", cx - backW/2f, mH * 0.76f, backW, backH,
                 mSetHover==10, mSetPress==10, false);
 
         scanLines();
@@ -634,23 +607,19 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         float backH = Math.max(gPS * 9f, mH * 0.060f);
         float backX = cx - backW/2f, backY = mH * 0.76f;
 
-        // Slider geometrisi
         float sx = sliderX(), sw = sliderW();
         float sy = sliderY(), sh = sliderH();
         float tr = thumbR();
         float thumbCX = volToThumbX();
-        // Thumb hit alanı biraz geniş tutulur — parmak hassasiyeti için
         float hitPad = tr * 1.4f;
 
         if (action == MotionEvent.ACTION_DOWN) {
-            // Thumb üzerine mi basıldı?
             if (x >= thumbCX - hitPad && x <= thumbCX + hitPad
                     && y >= sy + sh/2f - hitPad && y <= sy + sh/2f + hitPad) {
                 mSliderDragging = true;
                 updateSliderFromX(x, sx, sw);
                 return;
             }
-            // Track üzerine mi basıldı? (thumb dışı ama track içi → oraya atla)
             if (hit(x, y, sx, sy - tr, sw, sh + tr*2f)) {
                 mSliderDragging = true;
                 updateSliderFromX(x, sx, sw);
@@ -691,10 +660,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         }
     }
 
-    /**
-     * Dokunma X koordinatından slider değerini güncelle.
-     * Değeri [0,1]'e kırpar, MusicController'a bildirir.
-     */
     private void updateSliderFromX(float touchX, float trackX, float trackW) {
         float raw = (touchX - trackX) / trackW;
         mVolume = Math.max(0f, Math.min(1f, raw));
@@ -707,13 +672,13 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
     private void renderGame() {
         float ps = gPS * 1.1f;
-        drawStringC("OYUN GELIYOR...", mH * 0.44f, ps, C_GOLD);
+        drawStringC("OYUN GELİYOR...", mH * 0.44f, ps, C_GOLD);
         drawStringCWrapped("(Beklenti: Kart Sistemi)", mH * 0.56f, gPS * 0.75f, C_GDIM);
 
         float bw = mUsableW * 0.50f;
         float bh = Math.max(gPS * 9f, mH * 0.060f);
         float bx = mW/2f - bw/2f, by = mH * 0.74f;
-        drawButton("MENUYE DON", bx, by, bw, bh, false, false, false);
+        drawButton("MENÜYE DÖN", bx, by, bw, bh, false, false, false);
 
         if (mTouchAction == MotionEvent.ACTION_UP && hit(mTouchX, mTouchY, bx, by, bw, bh)) {
             mState = ST_MENU; mTouchAction = -1;
@@ -722,7 +687,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    //  ÇİZİM YÖNTEMLERİ  (değişmedi)
+    //  ÇİZİM YÖNTEMLERİ
     // ══════════════════════════════════════════════════════════════════════
 
     private void rect(float x, float y, float w, float h, float[] c) {
@@ -776,10 +741,26 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    //  PİXEL FONT  (değişmedi)
+    //  PİXEL FONT  — 5×9 Grid  (Papers Please esintisi)
+    // ══════════════════════════════════════════════════════════════════════
+    //
+    //  Grid: 5 sütun (0-4), 9 satır (0-8)
+    //  Harf gövdesi: satır 1-7 arası
+    //  İşaret katmanı: satır 0 (üst) veya satır 8 (alt)
+    //  Hücre adımı: ps*8  → drawString adımı da 8f
+    //
+    //  Primitifler (kalınlık = T = 1.5*ps):
+    //    pH(row)        → tam yatay bar (x+0 … x+5.5*ps)
+    //    pHh(row)       → sağ yarı yatay bar (col2.5 → col5.5)
+    //    pV(col,r0,r1)  → dikey bar, T kalınlığında
+    //    pD(col,row)    → T×T kare nokta
+    //
+    //  TÜRKÇE AKSANLAR (tamamı 0-8 satır içinde):
+    //    Satır 0 → üst işaret (nokta, breve, umlaut)
+    //    Satır 8 → alt işaret (cedilla — satır 7-8 içinde kalır)
     // ══════════════════════════════════════════════════════════════════════
 
-    private float charWidth(String s, float ps) { return s.length() * ps * 7f; }
+    private float charWidth(String s, float ps) { return s.length() * ps * 8f; }
 
     private float fitTextPS(String text, float maxW, float maxPS) {
         float needed = charWidth(text, maxPS);
@@ -810,8 +791,26 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private void drawString(String s, float x, float y, float ps, float[] c) {
         float cx = x;
         for (int i = 0; i < s.length(); i++) {
-            drawChar(Character.toUpperCase(s.charAt(i)), cx, y, ps, c);
-            cx += ps * 7f;
+            drawChar(trUpper(s.charAt(i)), cx, y, ps, c);
+            cx += ps * 8f;
+        }
+    }
+
+    /**
+     * Türkçe-güvenli büyük harf dönüşümü.
+     * Java'nın varsayılan toUpperCase() Türkçe için yanlış sonuç üretir.
+     * Bu metod Türkçeye özgü durumları elle yönetir.
+     */
+    private char trUpper(char ch) {
+        switch (ch) {
+            case 'i':          return '\u0130'; // i → İ  (noktalı)
+            case '\u0131':     return 'I';      // ı → I  (noktasız)
+            case '\u00FC':     return '\u00DC'; // ü → Ü
+            case '\u00F6':     return '\u00D6'; // ö → Ö
+            case '\u00E7':     return '\u00C7'; // ç → Ç
+            case '\u015F':     return '\u015E'; // ş → Ş
+            case '\u011F':     return '\u011E'; // ğ → Ğ
+            default:           return Character.toUpperCase(ch);
         }
     }
 
@@ -822,7 +821,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
     private void drawStringCWrapped(String s, float startY, float ps, float[] c) {
         List<String> lines = wrapText(s, mUsableW * 0.88f, ps);
-        float lineH = ps * 10f;
+        float lineH = ps * 11f;
         for (int i = 0; i < lines.size(); i++) {
             drawStringC(lines.get(i), startY + i * lineH, ps, c);
         }
@@ -830,64 +829,425 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
     private void drawChar(char ch, float x, float y, float ps, float[] c) {
         switch (ch) {
-            case 'A': fH(x,y,ps,1,c);fH(x,y,ps,4,c);fV(x,y,ps,0,0,3,c);fV(x,y,ps,4,0,3,c);fV(x,y,ps,0,4,6,c);fV(x,y,ps,4,4,6,c);break;
-            case 'B': fH(x,y,ps,0,c);fH(x,y,ps,3,c);fH(x,y,ps,6,c);fV(x,y,ps,0,0,6,c);fV(x,y,ps,4,0,2,c);fV(x,y,ps,4,3,5,c);break;
-            case 'C': fH(x,y,ps,0,c);fH(x,y,ps,6,c);fV(x,y,ps,0,0,6,c);break;
-            case 'D': fH(x,y,ps,0,c);fH(x,y,ps,6,c);fV(x,y,ps,0,0,6,c);fV(x,y,ps,4,1,5,c);fV(x,y,ps,3,0,0,c);fV(x,y,ps,3,6,6,c);break;
-            case 'E': fH(x,y,ps,0,c);fH(x,y,ps,3,c);fH(x,y,ps,6,c);fV(x,y,ps,0,0,6,c);break;
-            case 'F': fH(x,y,ps,0,c);fH(x,y,ps,3,c);fV(x,y,ps,0,0,6,c);break;
-            case 'G': fH(x,y,ps,0,c);fH(x,y,ps,3,c);fH(x,y,ps,6,c);fV(x,y,ps,0,0,6,c);fV(x,y,ps,4,3,6,c);break;
-            case 'H': fH(x,y,ps,3,c);fV(x,y,ps,0,0,6,c);fV(x,y,ps,4,0,6,c);break;
-            case 'I': fH(x,y,ps,0,c);fH(x,y,ps,6,c);fV(x,y,ps,2,0,6,c);break;
-            case 'J': fH(x,y,ps,0,c);fH(x,y,ps,5,c);fV(x,y,ps,4,0,6,c);fV(x,y,ps,0,5,6,c);break;
-            case 'K': fV(x,y,ps,0,0,6,c);fH(x,y,ps,3,c);fV(x,y,ps,4,0,2,c);fV(x,y,ps,4,4,6,c);break;
-            case 'L': fH(x,y,ps,6,c);fV(x,y,ps,0,0,6,c);break;
-            case 'M': fV(x,y,ps,0,0,6,c);fV(x,y,ps,4,0,6,c);fV(x,y,ps,1,0,2,c);fV(x,y,ps,3,0,2,c);fV(x,y,ps,2,1,2,c);break;
-            case 'N': fV(x,y,ps,0,0,6,c);fV(x,y,ps,4,0,6,c);fV(x,y,ps,1,0,1,c);fV(x,y,ps,2,1,3,c);fV(x,y,ps,3,3,5,c);break;
-            case 'O': fH(x,y,ps,0,c);fH(x,y,ps,6,c);fV(x,y,ps,0,0,6,c);fV(x,y,ps,4,0,6,c);break;
-            case 'P': fH(x,y,ps,0,c);fH(x,y,ps,3,c);fV(x,y,ps,0,0,6,c);fV(x,y,ps,4,0,3,c);break;
-            case 'Q': fH(x,y,ps,0,c);fH(x,y,ps,5,c);fV(x,y,ps,0,0,5,c);fV(x,y,ps,4,0,5,c);fV(x,y,ps,3,4,5,c);fV(x,y,ps,4,5,6,c);break;
-            case 'R': fH(x,y,ps,0,c);fH(x,y,ps,3,c);fV(x,y,ps,0,0,6,c);fV(x,y,ps,4,0,3,c);fV(x,y,ps,3,3,4,c);fV(x,y,ps,4,4,6,c);break;
-            case 'S': fH(x,y,ps,0,c);fH(x,y,ps,3,c);fH(x,y,ps,6,c);fV(x,y,ps,0,0,3,c);fV(x,y,ps,4,3,6,c);break;
-            case 'T': fH(x,y,ps,0,c);fV(x,y,ps,2,0,6,c);break;
-            case 'U': fH(x,y,ps,6,c);fV(x,y,ps,0,0,6,c);fV(x,y,ps,4,0,6,c);break;
-            case 'V': fV(x,y,ps,0,0,4,c);fV(x,y,ps,4,0,4,c);fV(x,y,ps,1,4,5,c);fV(x,y,ps,3,4,5,c);fV(x,y,ps,2,5,6,c);break;
-            case 'W': fV(x,y,ps,0,0,6,c);fV(x,y,ps,4,0,6,c);fV(x,y,ps,1,4,6,c);fV(x,y,ps,3,4,6,c);fV(x,y,ps,2,5,6,c);break;
-            case 'X': fV(x,y,ps,0,0,2,c);fV(x,y,ps,4,0,2,c);fV(x,y,ps,2,2,4,c);fV(x,y,ps,0,4,6,c);fV(x,y,ps,4,4,6,c);fV(x,y,ps,1,2,3,c);fV(x,y,ps,3,3,4,c);break;
-            case 'Y': fV(x,y,ps,0,0,2,c);fV(x,y,ps,4,0,2,c);fV(x,y,ps,2,2,6,c);break;
-            case 'Z': fH(x,y,ps,0,c);fH(x,y,ps,3,c);fH(x,y,ps,6,c);fV(x,y,ps,4,0,3,c);fV(x,y,ps,0,3,6,c);break;
-            case '0': fH(x,y,ps,0,c);fH(x,y,ps,6,c);fV(x,y,ps,0,0,6,c);fV(x,y,ps,4,0,6,c);fV(x,y,ps,1,1,2,c);fV(x,y,ps,3,3,4,c);break;
-            case '1': fV(x,y,ps,2,0,6,c);fH(x,y,ps,6,c);fV(x,y,ps,1,0,1,c);break;
-            case '2': fH(x,y,ps,0,c);fH(x,y,ps,3,c);fH(x,y,ps,6,c);fV(x,y,ps,4,0,3,c);fV(x,y,ps,0,3,6,c);break;
-            case '3': fH(x,y,ps,0,c);fH(x,y,ps,3,c);fH(x,y,ps,6,c);fV(x,y,ps,4,0,6,c);break;
-            case '4': fH(x,y,ps,3,c);fV(x,y,ps,0,0,3,c);fV(x,y,ps,4,0,6,c);break;
-            case '5': fH(x,y,ps,0,c);fH(x,y,ps,3,c);fH(x,y,ps,6,c);fV(x,y,ps,0,0,3,c);fV(x,y,ps,4,3,6,c);break;
-            case '6': fH(x,y,ps,0,c);fH(x,y,ps,3,c);fH(x,y,ps,6,c);fV(x,y,ps,0,0,6,c);fV(x,y,ps,4,3,6,c);break;
-            case '7': fH(x,y,ps,0,c);fV(x,y,ps,4,0,6,c);break;
-            case '8': fH(x,y,ps,0,c);fH(x,y,ps,3,c);fH(x,y,ps,6,c);fV(x,y,ps,0,0,6,c);fV(x,y,ps,4,0,6,c);break;
-            case '9': fH(x,y,ps,0,c);fH(x,y,ps,3,c);fH(x,y,ps,6,c);fV(x,y,ps,0,0,3,c);fV(x,y,ps,4,0,6,c);break;
-            case '.': fD(x,y,ps,2,6,c);break;
-            case ',': fD(x,y,ps,2,6,c);fD(x,y,ps,1,7,c);break;
-            case ':': fD(x,y,ps,2,2,c);fD(x,y,ps,2,4,c);break;
-            case '!': fV(x,y,ps,2,0,4,c);fD(x,y,ps,2,6,c);break;
-            case '?': fH(x,y,ps,0,c);fV(x,y,ps,4,0,2,c);fV(x,y,ps,2,2,3,c);fV(x,y,ps,3,2,3,c);fD(x,y,ps,2,6,c);break;
-            case '/': fV(x,y,ps,4,0,2,c);fV(x,y,ps,3,2,4,c);fV(x,y,ps,2,4,5,c);fV(x,y,ps,1,5,6,c);break;
-            case '-': fH(x,y,ps,3,c);break;
-            case '+': fH(x,y,ps,3,c);fV(x,y,ps,2,1,5,c);break;
-            case '(': fH(x,y,ps,1,c);fH(x,y,ps,5,c);fV(x,y,ps,0,1,5,c);break;
-            case ')': fH(x,y,ps,1,c);fH(x,y,ps,5,c);fV(x,y,ps,4,1,5,c);break;
-            case '%': fD(x,y,ps,0,0,c);fD(x,y,ps,1,0,c);fD(x,y,ps,0,1,c);fD(x,y,ps,1,1,c);fV(x,y,ps,4,0,2,c);fV(x,y,ps,3,2,4,c);fV(x,y,ps,2,4,5,c);fV(x,y,ps,1,5,6,c);fD(x,y,ps,3,5,c);fD(x,y,ps,4,5,c);fD(x,y,ps,3,6,c);fD(x,y,ps,4,6,c);break;
+
+            // ── HARFLER ──────────────────────────────────────────────────
+
+            // A: iki bacak + üst çatı + orta köprü
+            case 'A':
+                pV(x,y,ps,0,1,8,c); pV(x,y,ps,4,1,8,c);
+                pH(x,y,ps,1,c);
+                pHh(x,y,ps,5,c); rect(x,y+5*ps,ps*3f,T(ps),c);
+                break;
+
+            // B: sol dikey + üst/orta/alt yatay + sağ kısa dikey×2
+            case 'B':
+                pV(x,y,ps,0,1,7,c);
+                pH(x,y,ps,1,c); pH(x,y,ps,4,c); pH(x,y,ps,7,c);
+                pV(x,y,ps,4,1,3,c); pV(x,y,ps,4,5,7,c);
+                break;
+
+            // C: sol/üst/alt, açık sağ
+            case 'C':
+                pH(x,y,ps,1,c); pH(x,y,ps,7,c);
+                pV(x,y,ps,0,1,7,c);
+                break;
+
+            // D: sol dikey + üst/alt yatay + sağ dikey (kısa, orta uzun)
+            case 'D':
+                pV(x,y,ps,0,1,7,c);
+                pH(x,y,ps,1,c); pH(x,y,ps,7,c);
+                pV(x,y,ps,4,2,6,c);
+                break;
+
+            // E: sol dikey + üst/orta/alt yatay
+            case 'E':
+                pV(x,y,ps,0,1,7,c);
+                pH(x,y,ps,1,c); pH(x,y,ps,7,c);
+                rect(x,y+4*ps, ps*4f,T(ps),c);
+                break;
+
+            // F: sol dikey + üst/orta yatay
+            case 'F':
+                pV(x,y,ps,0,1,7,c);
+                pH(x,y,ps,1,c);
+                rect(x,y+4*ps, ps*4f,T(ps),c);
+                break;
+
+            // G: C + sağda orta çıkıntı
+            case 'G':
+                pH(x,y,ps,1,c); pH(x,y,ps,7,c);
+                pV(x,y,ps,0,1,7,c);
+                pV(x,y,ps,4,5,7,c);
+                rect(x+ps*2.5f, y+ps*4, ps*2.5f+T(ps), T(ps), c);
+                break;
+
+            // H: iki dikey + orta köprü
+            case 'H':
+                pV(x,y,ps,0,1,7,c); pV(x,y,ps,4,1,7,c);
+                pH(x,y,ps,4,c);
+                break;
+
+            // I: üst/alt yatay + merkez dikey
+            case 'I':
+                pH(x,y,ps,1,c); pH(x,y,ps,7,c);
+                pV(x,y,ps,2,1,7,c);
+                break;
+
+            // J: üst yatay + sağ dikey + sol alt kısa + alt yatay
+            case 'J':
+                pH(x,y,ps,1,c);
+                pV(x,y,ps,4,1,7,c);
+                pV(x,y,ps,0,6,7,c);
+                pH(x,y,ps,7,c);
+                break;
+
+            // K: sol dikey + üst/alt çapraz kollar
+            case 'K':
+                pV(x,y,ps,0,1,7,c);
+                pV(x,y,ps,3,1,2,c); pV(x,y,ps,4,1,1,c);
+                pV(x,y,ps,2,3,4,c);
+                pV(x,y,ps,3,5,6,c); pV(x,y,ps,4,7,7,c);
+                break;
+
+            // L: sol dikey + alt yatay
+            case 'L':
+                pV(x,y,ps,0,1,7,c);
+                pH(x,y,ps,7,c);
+                break;
+
+            // M: iki dış dikey + iç "V" tepe
+            case 'M':
+                pV(x,y,ps,0,1,7,c); pV(x,y,ps,4,1,7,c);
+                pV(x,y,ps,1,1,3,c);
+                pV(x,y,ps,3,1,3,c);
+                pV(x,y,ps,2,3,4,c);
+                break;
+
+            // N: iki dış dikey + eğik çizgi
+            case 'N':
+                pV(x,y,ps,0,1,7,c); pV(x,y,ps,4,1,7,c);
+                pV(x,y,ps,1,1,2,c);
+                pV(x,y,ps,2,3,4,c);
+                pV(x,y,ps,3,5,6,c);
+                break;
+
+            // O: çerçeve
+            case 'O':
+                pH(x,y,ps,1,c); pH(x,y,ps,7,c);
+                pV(x,y,ps,0,1,7,c); pV(x,y,ps,4,1,7,c);
+                break;
+
+            // P: sol dikey + üst yarı kapalı
+            case 'P':
+                pV(x,y,ps,0,1,7,c);
+                pH(x,y,ps,1,c); pH(x,y,ps,4,c);
+                pV(x,y,ps,4,1,4,c);
+                break;
+
+            // Q: O + sağ alt köşe çıkıntı
+            case 'Q':
+                pH(x,y,ps,1,c); pH(x,y,ps,7,c);
+                pV(x,y,ps,0,1,7,c); pV(x,y,ps,4,1,6,c);
+                pV(x,y,ps,3,6,7,c); pV(x,y,ps,4,7,7,c);
+                break;
+
+            // R: P + sağ alt bacak
+            case 'R':
+                pV(x,y,ps,0,1,7,c);
+                pH(x,y,ps,1,c); pH(x,y,ps,4,c);
+                pV(x,y,ps,4,1,4,c);
+                pV(x,y,ps,3,5,6,c); pV(x,y,ps,4,6,7,c);
+                break;
+
+            // S: üst sol + üst/orta/alt yatay + alt sağ
+            case 'S':
+                pH(x,y,ps,1,c); pH(x,y,ps,4,c); pH(x,y,ps,7,c);
+                pV(x,y,ps,0,1,4,c);
+                pV(x,y,ps,4,4,7,c);
+                break;
+
+            // T: üst yatay + merkez dikey
+            case 'T':
+                pH(x,y,ps,1,c);
+                pV(x,y,ps,2,1,7,c);
+                break;
+
+            // U: iki dikey + alt yatay
+            case 'U':
+                pV(x,y,ps,0,1,7,c); pV(x,y,ps,4,1,7,c);
+                pH(x,y,ps,7,c);
+                break;
+
+            // V: iki dış diagonal → birleşim altta
+            case 'V':
+                pV(x,y,ps,0,1,4,c); pV(x,y,ps,4,1,4,c);
+                pV(x,y,ps,1,5,6,c); pV(x,y,ps,3,5,6,c);
+                pV(x,y,ps,2,7,7,c);
+                break;
+
+            // W: iki dış dikey + iç "^" alt
+            case 'W':
+                pV(x,y,ps,0,1,7,c); pV(x,y,ps,4,1,7,c);
+                pV(x,y,ps,1,5,7,c); pV(x,y,ps,3,5,7,c);
+                pV(x,y,ps,2,4,5,c);
+                break;
+
+            // X: çapraz çift
+            case 'X':
+                pV(x,y,ps,0,1,2,c); pV(x,y,ps,4,1,2,c);
+                pV(x,y,ps,1,3,3,c); pV(x,y,ps,3,3,3,c);
+                pV(x,y,ps,2,4,4,c);
+                pV(x,y,ps,1,5,5,c); pV(x,y,ps,3,5,5,c);
+                pV(x,y,ps,0,6,7,c); pV(x,y,ps,4,6,7,c);
+                break;
+
+            // Y: üst çatal + alt merkez
+            case 'Y':
+                pV(x,y,ps,0,1,3,c); pV(x,y,ps,4,1,3,c);
+                pV(x,y,ps,1,4,4,c); pV(x,y,ps,3,4,4,c);
+                pV(x,y,ps,2,5,7,c);
+                break;
+
+            // Z: üst/alt yatay + ters çapraz
+            case 'Z':
+                pH(x,y,ps,1,c); pH(x,y,ps,7,c);
+                pV(x,y,ps,3,2,3,c);
+                pV(x,y,ps,2,4,5,c);
+                pV(x,y,ps,1,6,7,c);
+                pV(x,y,ps,4,1,2,c);
+                pV(x,y,ps,0,6,7,c);
+                break;
+
+            // ── RAKAMLAR ─────────────────────────────────────────────────
+
+            case '0':
+                pH(x,y,ps,1,c); pH(x,y,ps,7,c);
+                pV(x,y,ps,0,1,7,c); pV(x,y,ps,4,1,7,c);
+                pV(x,y,ps,2,3,4,c); pV(x,y,ps,3,4,5,c);
+                break;
+            case '1':
+                pV(x,y,ps,2,1,7,c);
+                pH(x,y,ps,7,c);
+                pV(x,y,ps,1,2,3,c);
+                break;
+            case '2':
+                pH(x,y,ps,1,c); pH(x,y,ps,4,c); pH(x,y,ps,7,c);
+                pV(x,y,ps,4,1,4,c);
+                pV(x,y,ps,0,4,7,c);
+                break;
+            case '3':
+                pH(x,y,ps,1,c); pH(x,y,ps,4,c); pH(x,y,ps,7,c);
+                pV(x,y,ps,4,1,7,c);
+                break;
+            case '4':
+                pV(x,y,ps,0,1,4,c); pV(x,y,ps,4,1,7,c);
+                pH(x,y,ps,4,c);
+                break;
+            case '5':
+                pH(x,y,ps,1,c); pH(x,y,ps,4,c); pH(x,y,ps,7,c);
+                pV(x,y,ps,0,1,4,c);
+                pV(x,y,ps,4,4,7,c);
+                break;
+            case '6':
+                pH(x,y,ps,1,c); pH(x,y,ps,4,c); pH(x,y,ps,7,c);
+                pV(x,y,ps,0,1,7,c);
+                pV(x,y,ps,4,4,7,c);
+                break;
+            case '7':
+                pH(x,y,ps,1,c);
+                pV(x,y,ps,4,1,4,c);
+                pV(x,y,ps,3,5,6,c);
+                pV(x,y,ps,2,7,7,c);
+                break;
+            case '8':
+                pH(x,y,ps,1,c); pH(x,y,ps,4,c); pH(x,y,ps,7,c);
+                pV(x,y,ps,0,1,7,c); pV(x,y,ps,4,1,7,c);
+                break;
+            case '9':
+                pH(x,y,ps,1,c); pH(x,y,ps,4,c); pH(x,y,ps,7,c);
+                pV(x,y,ps,0,1,4,c); pV(x,y,ps,4,1,7,c);
+                break;
+
+            // ── NOKTALAMA ────────────────────────────────────────────────
+
+            case '.': pD(x,y,ps,2,7,c); break;
+            case ',': pD(x,y,ps,2,7,c); pD(x,y,ps,1,8,c); break;
+            case ':': pD(x,y,ps,2,3,c); pD(x,y,ps,2,5,c); break;
+            case '!': pV(x,y,ps,2,1,5,c); pD(x,y,ps,2,7,c); break;
+            case '?':
+                pH(x,y,ps,1,c); pV(x,y,ps,4,1,3,c);
+                pV(x,y,ps,2,3,4,c); pV(x,y,ps,3,3,4,c);
+                pD(x,y,ps,2,6,c);
+                break;
+            case '/':
+                pV(x,y,ps,4,1,2,c); pV(x,y,ps,3,3,4,c);
+                pV(x,y,ps,2,5,6,c); pV(x,y,ps,1,7,7,c);
+                break;
+            case '-': rect(x+ps*0.5f, y+ps*4, ps*4f, T(ps), c); break;
+            case '+':
+                rect(x+ps*0.5f, y+ps*4, ps*4f, T(ps), c);
+                pV(x,y,ps,2,2,6,c);
+                break;
+            case '(':
+                pV(x,y,ps,1,1,7,c);
+                pH(x,y,ps,1,c); pH(x,y,ps,7,c);
+                rect(x, y+ps, ps*2f, T(ps), c);
+                rect(x, y+ps*7, ps*2f, T(ps), c);
+                pV(x,y,ps,0,1,7,c);
+                break;
+            case ')':
+                pV(x,y,ps,3,1,7,c);
+                rect(x+ps*3, y+ps, ps*2f, T(ps), c);
+                rect(x+ps*3, y+ps*7, ps*2f, T(ps), c);
+                pV(x,y,ps,4,1,7,c);
+                break;
+            case '%':
+                pD(x,y,ps,0,1,c); pD(x,y,ps,1,1,c);
+                pD(x,y,ps,0,2,c); pD(x,y,ps,1,2,c);
+                pV(x,y,ps,3,1,2,c); pV(x,y,ps,2,3,4,c); pV(x,y,ps,1,5,6,c);
+                pD(x,y,ps,3,5,c); pD(x,y,ps,4,5,c);
+                pD(x,y,ps,3,6,c); pD(x,y,ps,4,6,c);
+                break;
             case ' ': break;
-            default:  fD(x,y,ps,2,3,c);break;
+
+            // ══════════════════════════════════════════════════════════════
+            //  TÜRKÇE KARAKTERLER — 5×9 Grid, satır 0-8 içinde
+            //
+            //  Aksanlar grid'de şu satırlara yerleşir:
+            //    Satır 0   → üst işaret (nokta, breve/kemer, umlaut/iki nokta)
+            //    Satır 1-7 → harf gövdesi (Latin tabanıyla birebir aynı)
+            //    Satır 8   → alt işaret (cedilla — kanca gövde içinde biter)
+            //
+            //  Satır yüksekliği = 9 birim (0-8), drawString adımı bozulmaz.
+            // ══════════════════════════════════════════════════════════════
+
+            // ── Ç  (C + alt cedilla) ─────────────────────────────────────
+            //  Gövde: C harfi (satır 1-7)
+            //  Cedilla: satır 7-8'de orta sütunda küçük kanca
+            //    • col2 satır7-8: dikey küçük çıkıntı
+            //    • col1 satır8: sol kanca ucu (yatay köprü)
+            //  Tüm çizim satır 0-8 içinde kalır.
+            case '\u00C7': // Ç
+            case '\u00E7': // ç
+                // C gövdesi
+                pH(x,y,ps,1,c); pH(x,y,ps,7,c);
+                pV(x,y,ps,0,1,7,c);
+                // Cedilla: satır 7 altında küçük kanca (satır 8 içinde)
+                pD(x,y,ps,2,8,c);               // merkez çıkıntı
+                rect(x+ps*1f, y+ps*8f+T(ps)*0.5f, ps*1.5f, T(ps)*0.6f, c); // sol yatay kanca
+                break;
+
+            // ── Ğ  (G + üst breve/kemer) ─────────────────────────────────
+            //  Gövde: G harfi (satır 1-7)
+            //  Breve (kemer): satır 0'da yay şeklinde
+            //    • İki uç nokta: col1 ve col3 (satır 0)
+            //    • Aralarını bağlayan yatay köprü: col1-col3 arası, satır 0 ortasında
+            //  Tüm çizim satır 0-8 içinde kalır.
+            case '\u011E': // Ğ
+            case '\u011F': // ğ
+                // G gövdesi
+                pH(x,y,ps,1,c); pH(x,y,ps,7,c);
+                pV(x,y,ps,0,1,7,c);
+                pV(x,y,ps,4,5,7,c);
+                rect(x+ps*2.5f, y+ps*4, ps*2.5f+T(ps), T(ps), c);
+                // Breve: satır 0'da iki uç + köprü
+                pD(x,y,ps,1,0,c);                               // sol uç
+                pD(x,y,ps,3,0,c);                               // sağ uç
+                rect(x+ps*2f, y+ps*0f+T(ps)*0.4f, ps*1.5f, T(ps)*0.7f, c); // köprü
+                break;
+
+            // ── İ  (I + üst nokta) ───────────────────────────────────────
+            //  Gövde: I harfi (satır 1-7)
+            //  Nokta: col2 satır 0 → tek pD, grid içinde
+            case '\u0130': // İ  (noktalı büyük I)
+                pH(x,y,ps,1,c); pH(x,y,ps,7,c);
+                pV(x,y,ps,2,1,7,c);
+                pD(x,y,ps,2,0,c);   // üst nokta
+                break;
+
+            // ── I  (noktasız büyük I — ı'nın büyüğü) ────────────────────
+            //  trUpper() '\u0131' → 'I' çevirir, buraya düşer.
+            //  Standart I harfi, nokta yok. (case 'I' zaten yukarıda var)
+
+            // ── Ö  (O + üst iki nokta/umlaut) ────────────────────────────
+            //  Gövde: O harfi (satır 1-7)
+            //  Umlaut: col1 ve col3 satır 0 → iki ayrı pD
+            case '\u00D6': // Ö
+            case '\u00F6': // ö
+                pH(x,y,ps,1,c); pH(x,y,ps,7,c);
+                pV(x,y,ps,0,1,7,c); pV(x,y,ps,4,1,7,c);
+                pD(x,y,ps,1,0,c);   // sol nokta
+                pD(x,y,ps,3,0,c);   // sağ nokta
+                break;
+
+            // ── Ş  (S + alt cedilla) ─────────────────────────────────────
+            //  Gövde: S harfi (satır 1-7)
+            //  Cedilla: Ç ile aynı çizim mantığı — satır 8 içinde kalır
+            case '\u015E': // Ş
+            case '\u015F': // ş
+                // S gövdesi
+                pH(x,y,ps,1,c); pH(x,y,ps,4,c); pH(x,y,ps,7,c);
+                pV(x,y,ps,0,1,4,c);
+                pV(x,y,ps,4,4,7,c);
+                // Cedilla (Ç ile aynı)
+                pD(x,y,ps,2,8,c);
+                rect(x+ps*1f, y+ps*8f+T(ps)*0.5f, ps*1.5f, T(ps)*0.6f, c);
+                break;
+
+            // ── Ü  (U + üst iki nokta/umlaut) ────────────────────────────
+            //  Gövde: U harfi (satır 1-7)
+            //  Umlaut: col1 ve col3 satır 0 → iki ayrı pD
+            case '\u00DC': // Ü
+            case '\u00FC': // ü
+                pV(x,y,ps,0,1,7,c); pV(x,y,ps,4,1,7,c);
+                pH(x,y,ps,7,c);
+                pD(x,y,ps,1,0,c);   // sol nokta
+                pD(x,y,ps,3,0,c);   // sağ nokta
+                break;
+
+            // ── Bilinmeyen karakter → merkez nokta ───────────────────────
+            default: pD(x,y,ps,2,4,c); break;
         }
     }
 
-    private void fH(float x,float y,float ps,int row,float[] c){ rect(x,y+row*ps,5f*ps,ps,c); }
-    private void fV(float x,float y,float ps,int col,int r0,int r1,float[] c){ rect(x+col*ps,y+r0*ps,ps,(r1-r0+1)*ps,c); }
-    private void fD(float x,float y,float ps,int col,int row,float[] c){ rect(x+col*ps,y+row*ps,ps,ps,c); }
+    // ══════════════════════════════════════════════════════════════════════
+    //  FONT PRİMİTİFLERİ
+    // ══════════════════════════════════════════════════════════════════════
+
+    /** Çizgi kalınlığı = 1.5 × ps */
+    private float T(float ps) { return ps * 1.5f; }
+
+    /**
+     * pH  — Tam yatay bar, satır 'row', soldan sağa tam genişlik (5.5*ps)
+     * Grid col0'dan col4+T'ye uzanır → dikey barlarla köşe örtüşümü tam.
+     */
+    private void pH(float x, float y, float ps, int row, float[] c) {
+        rect(x, y + row * ps, ps * 5.5f, T(ps), c);
+    }
+
+    /**
+     * pHh — Sağ yarı yatay bar (col2.5'ten col4+T'ye), G ve benzeri için
+     */
+    private void pHh(float x, float y, float ps, int row, float[] c) {
+        rect(x + ps * 2.5f, y + row * ps, ps * 3f, T(ps), c);
+    }
+
+    /**
+     * pV  — Dikey bar, sütun 'col', satır r0'dan r1'e (dahil), kalınlık T
+     */
+    private void pV(float x, float y, float ps, int col, int r0, int r1, float[] c) {
+        rect(x + col * ps, y + r0 * ps, T(ps), (r1 - r0 + 1) * ps, c);
+    }
+
+    /**
+     * pD  — T×T kare nokta, sütun col, satır row
+     */
+    private void pD(float x, float y, float ps, int col, int row, float[] c) {
+        rect(x + col * ps, y + row * ps, T(ps), T(ps), c);
+    }
 
     // ══════════════════════════════════════════════════════════════════════
-    //  BUTON  (değişmedi)
+    //  BUTON
     // ══════════════════════════════════════════════════════════════════════
 
     private void drawButton(String label, float x, float y, float w, float h,
@@ -905,11 +1265,11 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
         float ps = fitTextPS(label, w * 0.78f, gPS * 0.80f);
         float tw = charWidth(label, ps);
-        drawString(label, x + w/2f - tw/2f, y + h/2f - 3.5f*ps, ps, txt);
+        drawString(label, x + w/2f - tw/2f, y + h/2f - 4.5f*ps, ps, txt);
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    //  TEXTURE YÜKLEME  (değişmedi)
+    //  TEXTURE YÜKLEME
     // ══════════════════════════════════════════════════════════════════════
 
     private int loadTexture(String name) {
@@ -932,7 +1292,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    //  SHADER DERLEME  (değişmedi)
+    //  SHADER DERLEME
     // ══════════════════════════════════════════════════════════════════════
 
     private int buildProgram(String vs, String fs) {
@@ -958,7 +1318,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    //  YARDIMCI  (değişmedi)
+    //  YARDIMCI
     // ══════════════════════════════════════════════════════════════════════
 
     private boolean hit(float px, float py, float rx, float ry, float rw, float rh) {
