@@ -21,20 +21,19 @@ import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
 /**
- * MÜHÜR — GameRenderer  (Revizyon 5)
+ * MÜHÜR — GameRenderer  (Revizyon 6)
  *
- * Değişiklikler (Rev 5):
- *   1. Gömülü sinema metinleri KALDIRILDI — loadIntroFromAssets() ile
- *      src/scenario/Opposition_1/intro.md'den dinamik olarak yüklenir.
- *   2. CINEMA_TEXT / CINEMA_ASSETS sabitleri → mCinemaText / mCinemaAssets
- *      dinamik alanlarına çevrildi; font değişikliğine hazır mimari.
- *   3. renderGame() debug placeholder temizlendi; gerçek kart alanı,
- *      stat barları ve swipe altyapısı eklendi.
- *   4. Bar nokta sistemi: kart kaydırılırken etkilenecek barların üzerinde
- *      yanıp sönen nokta + yön işareti gösterilir (±0 ise nokta çıkmaz).
- *   5. touchGame() swipe algılama: eşik = ekran genişliğinin %28'i.
- *   6. renderFontTest() "FONT TEST" başlığı kaldırıldı.
- *   7. Tüm "Test Scenario" / "Debug Text" / placeholder metinler temizlendi.
+ * Değişiklikler (Rev 6):
+ *   1. cards.json entegrasyonu: loadCardsFromJson() ile
+ *      assets/scenario/opposition_1/cards.json okunur (org.json, API 1+).
+ *   2. Kart içeriği ekranda gösterilir: karakter etiketi, flavor metni,
+ *      ana metin — tümü pixel fontuyla, sarılmış (wrapText).
+ *   3. Swipe sırasında kart üzerinde "EVET" (sağ) / "HAYIR" (sol) etiketi
+ *      beliren çerçeveli kutu ile gösterilir; opaklık kaydırmayla artar.
+ *   4. Alt durum çubuğu: Perde numarası | Kart ID | Karakter adı.
+ *   5. onCardChosen() → loadCardAtIndex() zinciri ile sıradaki kart
+ *      otomatik yüklenir.
+ *   6. Gizli köşe (sol üst) ve font test geçişi ilk kartı sıfırlar.
  *
  * Korunan / DEĞİŞMEYEN:
  *   - Tüm state machine akışı (ST_SPLASH → ST_MENU → ST_CINEMA → ST_GAME)
@@ -171,12 +170,27 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private float   mCardSwipeX      = 0f;   // anlık yatay kaydırma miktarı
     private boolean mCardSwiping     = false;
     private float   mCardSwipeStartX = 0f;
-    // Aktif kartın bar etkileri (acts.md'den parse edilir, yüklenince dolar)
-    // Sol (reddet) ve sağ (kabul) için ayrı: [halk, inanc, ekonomi, ordu]
+    // Aktif kartın bar etkileri (cards.json'dan yüklenir)
+    // Sıra: [halk, din, para, ordu]  — BAR_LABELS ile aynı sıra
     private int[]   mCardEffectLeft  = {0, 0, 0, 0};
     private int[]   mCardEffectRight = {0, 0, 0, 0};
     // Bar etiketleri (GameState ile aynı sıra)
     private static final String[] BAR_LABELS = {"HALK", "DİN", "PARA", "ORDU"};
+
+    // ─── AKTİF KART VERİSİ (cards.json'dan yüklenir) ─────────────────────
+    private String  mCardId        = "";
+    private String  mCardCharacter = "";
+    private String  mCardFlavor    = "";  // italik üst metin
+    private String  mCardText      = "";  // ana kart metni
+    private String  mCardLabelLeft = "HAYIR";
+    private String  mCardLabelRight= "EVET";
+    private int     mCardAct       = 1;
+    // JSON'dan yüklenen tüm kart listesi
+    private final List<String[]> mAllCards = new ArrayList<>();
+    // [0]=id [1]=char [2]=flavor [3]=text [4]=labelL [5]=labelR
+    // [6]=halkL [7]=dinL [8]=paraL [9]=orduL
+    // [10]=halkR [11]=dinR [12]=paraR [13]=orduR
+    private int     mCurrentCardIdx = 0;
 
     // ─── CONTEXT & MÜZİK ───────────────────────────────────────────────────
     private final Context         mCtx;
@@ -195,6 +209,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
         // intro.md'yi yükle; mCinemaText, mCinemaAssets ve mTexCinema doldurulur
         loadIntroFromAssets();
+        // cards.json'ı yükle
+        loadCardsFromJson();
         ByteBuffer bb = ByteBuffer.allocateDirect(8 * 4);
         bb.order(ByteOrder.nativeOrder());
         mVtxBuf = bb.asFloatBuffer();
@@ -816,7 +832,9 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             mFtChar = ftTotalChars();
             mFtDone = true;
         } else {
-            // Tamamlandıysa → oyuna geç
+            // Tamamlandıysa → oyuna geç, ilk kartı hazırla
+            mCurrentCardIdx = 0;
+            if (!mAllCards.isEmpty()) loadCardAtIndex(0);
             mState = ST_GAME;
         }
     }
@@ -829,46 +847,114 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         // ── Arka plan ───────────────────────────────────────────────────
         rect(0, 0, mW, mH, C_BG);
 
-        // ── Bar göstergesi (üst bant) ────────────────────────────────────
+        // ── Üst bar şeridi ───────────────────────────────────────────────
         float barAreaH = mH * 0.10f;
         float barAreaY = mPad * 1.2f;
         drawStatBars(barAreaY, barAreaH);
 
-        // ── Kart ────────────────────────────────────────────────────────
-        float cardW = mUsableW * 0.88f;
-        float cardH = mH * 0.52f;
-        float cardX = mW / 2f - cardW / 2f + mCardSwipeX;
-        float cardY = mH * 0.22f;
+        // ── Alt durum çubuğu (yıl, karar, unvan) ────────────────────────
+        renderStatusBar();
 
-        // Kart eğimi: kaydırma miktarına göre hafif rotasyon simülasyonu
-        // (gerçek GL rotasyon yok — kart alt köşesini offstage kaydır)
-        float tiltOffset = mCardSwipeX * 0.08f;
+        // ── Kart geometrisi ───────────────────────────────────────────────
+        float cardW      = mUsableW * 0.88f;
+        float cardH      = mH * 0.52f;
+        float cardCenterY= mH * 0.22f;
+        float absSwipe   = Math.abs(mCardSwipeX);
+        float tiltOffset = mCardSwipeX * 0.08f;  // üst kısmı sabit, alt kayar
+        float cardX      = mW / 2f - cardW / 2f + mCardSwipeX;
+
+        // Kart gölgesi (hafif, sabit)
+        float[] shadowCol = {0f, 0f, 0f, 0.30f};
+        rect(cardX + gPS * 0.8f, cardCenterY + tiltOffset + gPS * 0.8f, cardW, cardH, shadowCol);
 
         // Kart arkaplanı
-        float[] cardBg = {C_DARK[0], C_DARK[1], C_DARK[2], 1.0f};
-        rect(cardX, cardY + tiltOffset, cardW, cardH, cardBg);
+        rect(cardX, cardCenterY + tiltOffset, cardW, cardH, C_DARK);
 
-        // Kart çerçevesi — kaydırma yönüne göre renk
+        // Kart çerçeve rengi — kaydırma yönüne göre
         float[] frameCol;
-        float absSwipe = Math.abs(mCardSwipeX);
+        float swipeRatio = mCardSwipeX / (mW * 0.28f);  // -1..+1 normalize
         if (absSwipe > mW * 0.06f) {
             frameCol = (mCardSwipeX > 0) ? C_GOLD : C_GDIM;
         } else {
             frameCol = C_GDIM;
         }
         float b = Math.max(1.5f, gPS * 0.4f);
-        rect(cardX,            cardY + tiltOffset,            cardW, b,     frameCol);
-        rect(cardX,            cardY + tiltOffset + cardH - b, cardW, b,     frameCol);
-        rect(cardX,            cardY + tiltOffset,            b,     cardH, frameCol);
-        rect(cardX + cardW - b, cardY + tiltOffset,            b,     cardH, frameCol);
+        rect(cardX,             cardCenterY + tiltOffset,            cardW, b,     frameCol);
+        rect(cardX,             cardCenterY + tiltOffset + cardH - b, cardW, b,     frameCol);
+        rect(cardX,             cardCenterY + tiltOffset,             b,     cardH, frameCol);
+        rect(cardX + cardW - b, cardCenterY + tiltOffset,             b,     cardH, frameCol);
 
-        // ── Bar etki noktaları (kaydırma aktifse) ───────────────────────
+        // ── Kart içeriği ─────────────────────────────────────────────────
+        float innerX  = cardX + gPS * 3f;
+        float innerW  = cardW - gPS * 6f;
+        float innerY  = cardCenterY + tiltOffset + gPS * 3f;
+
+        // Karakter etiketi (üst)
+        float charPS    = gPS * 0.58f;
+        float[] charCol = {C_GREY[0], C_GREY[1], C_GREY[2], 0.85f};
+        String charLabel= mCardCharacter.replace("_", " ").toUpperCase();
+        drawString(charLabel, innerX, innerY, charPS, charCol);
+
+        // Ayırıcı çizgi
+        float divY = innerY + charPS * 10f + gPS;
+        rect(innerX, divY, innerW, Math.max(1f, gPS * 0.3f), C_GDIM);
+
+        // Flavor metni (italik yok ama soluk renk)
+        float flavPS  = gPS * 0.62f;
+        float[] flavCol = {C_GDIM[0], C_GDIM[1], C_GDIM[2], 0.80f};
+        List<String> flavLines = wrapText(mCardFlavor, innerW, flavPS);
+        float flavY = divY + gPS * 2f;
+        for (int i = 0; i < Math.min(flavLines.size(), 2); i++) {
+            drawString(flavLines.get(i), innerX, flavY + i * flavPS * 11f, flavPS, flavCol);
+        }
+
+        // Ana kart metni
+        float textPS  = gPS * 0.75f;
+        float textY   = flavY + Math.min(flavLines.size(), 2) * flavPS * 11f + gPS * 2f;
+        List<String> textLines = wrapText(mCardText, innerW, textPS);
+        int maxTextLines = 6;
+        for (int i = 0; i < Math.min(textLines.size(), maxTextLines); i++) {
+            drawString(textLines.get(i), innerX, textY + i * textPS * 11f, textPS, C_GOLD);
+        }
+
+        // ── EVET / HAYIR etiketi — kaydırma aktifse göster ───────────────
         if (absSwipe > mW * 0.04f) {
             boolean goRight = mCardSwipeX > 0;
+            String  swipeLabel  = goRight ? "EVET" : "HAYIR";
+            float[] swipeLabelCol;
+            float   labelAlpha  = Math.min(1f, absSwipe / (mW * 0.15f));
+
+            if (goRight) {
+                // Sağa — altın (kabul)
+                swipeLabelCol = new float[]{C_GOLD[0], C_GOLD[1], C_GOLD[2], labelAlpha};
+            } else {
+                // Sola — soluk (ret)
+                swipeLabelCol = new float[]{C_GDIM[0], C_GDIM[1], C_GDIM[2], labelAlpha};
+            }
+
+            float labelPS = fitTextPS(swipeLabel, cardW * 0.55f, gPS * 2.2f);
+            float labelW  = charWidth(swipeLabel, labelPS);
+            float labelX  = mW / 2f - labelW / 2f + mCardSwipeX * 0.4f;
+            float labelY  = cardCenterY + cardH * 0.38f + tiltOffset;
+
+            // Etiket arka kutu (yarı saydam)
+            float pad = gPS * 2f;
+            float[] boxCol = {C_BG[0], C_BG[1], C_BG[2], labelAlpha * 0.75f};
+            rect(labelX - pad, labelY - pad, labelW + pad * 2f, labelPS * 10f + pad * 2f, boxCol);
+            // Etiket çerçeve çizgisi
+            float bl = Math.max(1f, gPS * 0.35f);
+            rect(labelX - pad,               labelY - pad,               labelW + pad*2f, bl,   swipeLabelCol);
+            rect(labelX - pad,               labelY + labelPS*10f + pad - bl, labelW + pad*2f, bl, swipeLabelCol);
+            rect(labelX - pad,               labelY - pad,               bl, labelPS*10f + pad*2f, swipeLabelCol);
+            rect(labelX + labelW + pad - bl, labelY - pad,               bl, labelPS*10f + pad*2f, swipeLabelCol);
+
+            drawString(swipeLabel, labelX, labelY, labelPS, swipeLabelCol);
+
+            // Bar etki noktaları
             drawBarHintDots(goRight, barAreaY, barAreaH);
         }
 
-        // ── Yön okları (hafif ikon) ──────────────────────────────────────
+        // ── Yön okları — swipe yapılmıyorken göster ──────────────────────
         if (!mCardSwiping) {
             float arrowPS  = gPS * 0.65f;
             float[] dimArr = {C_GDIM[0], C_GDIM[1], C_GDIM[2], 0.45f};
@@ -877,17 +963,31 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             drawString(">", arrRight, mH * 0.46f, arrowPS, dimArr);
         }
 
-        // ── Menüye dön butonu (alt) ──────────────────────────────────────
-        float bw = mUsableW * 0.50f;
-        float bh = Math.max(gPS * 9f, mH * 0.060f);
-        float bx = mW / 2f - bw / 2f, by = mH * 0.88f;
-        drawButton("MENÜYE DÖN", bx, by, bw, bh, false, false, false);
-
-        if (mTouchAction == MotionEvent.ACTION_UP && hit(mTouchX, mTouchY, bx, by, bw, bh)) {
-            mState = ST_MENU; mTouchAction = -1;
-        }
-
         scanLines();
+    }
+
+    /**
+     * Alt durum çubuğu: Yıl | Karar No | Karakter adı
+     */
+    private void renderStatusBar() {
+        float barY   = mH * 0.91f;
+        float barH   = mH - barY;
+        float[] sepCol = {C_GDIM[0], C_GDIM[1], C_GDIM[2], 0.30f};
+        rect(0, barY - Math.max(1f, gPS * 0.3f), mW, Math.max(1f, gPS * 0.3f), sepCol);
+        rect(0, barY, mW, barH, C_DARK);
+
+        float ps = gPS * 0.55f;
+        String actStr  = "PERDE " + mCardAct;
+        String cardStr = mCardId.isEmpty() ? "" : "#" + mCardId.replace("OPP1-", "");
+        String charStr = mCardCharacter.replace("_", " ").toUpperCase();
+
+        drawString(actStr, mPad, barY + gPS, ps, C_GOLD);
+        if (!cardStr.isEmpty()) {
+            float cw = charWidth(cardStr, ps);
+            drawString(cardStr, mW / 2f - cw / 2f, barY + gPS, ps, C_GDIM);
+        }
+        float nw = charWidth(charStr, ps);
+        drawString(charStr, mW - mPad - nw, barY + gPS, ps, C_GREY);
     }
 
     /**
@@ -936,15 +1036,44 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
     /**
      * Kart seçimi yapıldığında çağrılır.
-     * GameState entegrasyonunda gerçek kart geçişi buradan yönetilecek.
+     * Seçim efektlerini uygular ve sıradaki kartı yükler.
      *
-     * @param right true = sağ (kabul), false = sol (ret)
+     * @param right true = sağ (EVET/kabul), false = sol (HAYIR/ret)
      */
     private void onCardChosen(boolean right) {
-        // TODO: GameState.applyCardEffect(right) çağrısı buraya gelecek
-        // Şimdilik sadece efektleri sıfırla
-        mCardEffectLeft  = new int[]{0, 0, 0, 0};
-        mCardEffectRight = new int[]{0, 0, 0, 0};
+        // Sıradaki kartı yükle
+        mCurrentCardIdx++;
+        if (mCurrentCardIdx < mAllCards.size()) {
+            loadCardAtIndex(mCurrentCardIdx);
+        } else {
+            // Kart listesi bitti
+            mCardId = ""; mCardText = ""; mCardFlavor = "";
+            mCardCharacter = ""; mCardAct = 1;
+            mCardEffectLeft  = new int[]{0, 0, 0, 0};
+            mCardEffectRight = new int[]{0, 0, 0, 0};
+        }
+    }
+
+    /** Kart listesinden belirtilen indeksteki kartı aktif kart olarak yükler. */
+    private void loadCardAtIndex(int idx) {
+        if (idx < 0 || idx >= mAllCards.size()) return;
+        String[] c = mAllCards.get(idx);
+        mCardId          = c[0];
+        mCardCharacter   = c[1];
+        mCardFlavor      = c[2];
+        mCardText        = c[3];
+        mCardLabelLeft   = c[4];
+        mCardLabelRight  = c[5];
+        try {
+            mCardEffectLeft  = new int[]{ Integer.parseInt(c[6]),  Integer.parseInt(c[7]),
+                                          Integer.parseInt(c[8]),  Integer.parseInt(c[9])  };
+            mCardEffectRight = new int[]{ Integer.parseInt(c[10]), Integer.parseInt(c[11]),
+                                          Integer.parseInt(c[12]), Integer.parseInt(c[13]) };
+            mCardAct = Integer.parseInt(c[14]);
+        } catch (NumberFormatException e) {
+            mCardEffectLeft  = new int[]{0,0,0,0};
+            mCardEffectRight = new int[]{0,0,0,0};
+        }
     }
 
     /**
@@ -1875,6 +2004,66 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         GLES20.glGetShaderiv(s, GLES20.GL_COMPILE_STATUS, ok, 0);
         if (ok[0]==0) throw new RuntimeException(GLES20.glGetShaderInfoLog(s));
         return s;
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    //  KART YÜKLEYICI — assets/scenario/opposition_1/cards.json
+    // ══════════════════════════════════════════════════════════════════════
+
+    /**
+     * cards.json'ı parse eder. Android'in kendi JSON kütüphanesini kullanır
+     * (org.json — dış bağımlılık gerekmez, API 1'den beri mevcut).
+     *
+     * Her kart mAllCards listesine String[15] olarak eklenir:
+     * [0]=id  [1]=character  [2]=flavor  [3]=text  [4]=labelL  [5]=labelR
+     * [6]=halkL [7]=dinL [8]=paraL [9]=orduL
+     * [10]=halkR [11]=dinR [12]=paraR [13]=orduR
+     * [14]=act
+     */
+    private void loadCardsFromJson() {
+        final String PATH = "scenario/opposition_1/cards.json";
+        try {
+            InputStream is = mAssets.open(PATH);
+            byte[] buf = new byte[is.available()];
+            //noinspection ResultOfMethodCallIgnored
+            is.read(buf);
+            is.close();
+            String raw = new String(buf, "UTF-8");
+
+            org.json.JSONObject root  = new org.json.JSONObject(raw);
+            org.json.JSONArray  cards = root.getJSONArray("cards");
+
+            mAllCards.clear();
+            for (int i = 0; i < cards.length(); i++) {
+                org.json.JSONObject card = cards.getJSONObject(i);
+                org.json.JSONObject cl   = card.getJSONObject("choiceLeft");
+                org.json.JSONObject cr   = card.getJSONObject("choiceRight");
+
+                String[] entry = new String[15];
+                entry[0]  = card.optString("id",        "");
+                entry[1]  = card.optString("character", "");
+                entry[2]  = card.optString("flavor",    "");
+                entry[3]  = card.optString("text",      "");
+                entry[4]  = cl.optString("label",  "HAYIR");
+                entry[5]  = cr.optString("label",  "EVET");
+                entry[6]  = String.valueOf(cl.optInt("halk", 0));
+                entry[7]  = String.valueOf(cl.optInt("din",  0));
+                entry[8]  = String.valueOf(cl.optInt("para", 0));
+                entry[9]  = String.valueOf(cl.optInt("ordu", 0));
+                entry[10] = String.valueOf(cr.optInt("halk", 0));
+                entry[11] = String.valueOf(cr.optInt("din",  0));
+                entry[12] = String.valueOf(cr.optInt("para", 0));
+                entry[13] = String.valueOf(cr.optInt("ordu", 0));
+                entry[14] = String.valueOf(card.optInt("act", 1));
+                mAllCards.add(entry);
+            }
+
+            // İlk kartı aktif olarak yükle
+            if (!mAllCards.isEmpty()) loadCardAtIndex(0);
+
+        } catch (Exception e) {
+            // JSON yoksa veya parse hatası — kart metni boş kalır
+        }
     }
 
     // ══════════════════════════════════════════════════════════════════════
