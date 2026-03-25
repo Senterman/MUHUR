@@ -173,6 +173,60 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private float mTouchX, mTouchY;
     private int   mTouchAction = -1;
 
+    // ─── OYUN EKRANı — GameState ─────────────────────────────────────────
+    private GameState mGameState = new GameState();
+
+    // ─── BAR ANİMASYONU (lerp için) ─────────────────────────────────────
+    // sıra: HALK, İNANÇ, EKONOMİ, ORDU
+    private float[] mBarCurrent = {50f, 50f, 50f, 50f};
+    private float[] mBarTarget  = {50f, 50f, 50f, 50f};
+
+    // ─── SWIPE ──────────────────────────────────────────────────────────
+    private float   mSwipeStartX  = 0f;
+    private float   mSwipeStartY  = 0f;
+    private boolean mSwiping      = false;
+    private float   mCardOffsetX  = 0f;   // kart X kayması (piksel)
+    private int     mSwipeDir     = 0;    // -1 sol, 0 nötr, +1 sağ
+    private static final float SWIPE_THRESHOLD = 100f;
+
+    // ─── KART VERİTABANI (placeholder) ──────────────────────────────────
+    private static final String[] CARD_TITLES = {
+        "GREV TALEBİ",
+        "ASKERİ BÜTÇE",
+        "DİNİ VAKIF",
+        "VERGİ AFFI",
+        "BASIN YASAĞI",
+        "ÜNİVERSİTE",
+    };
+    private static final String[] CARD_TEXTS = {
+        "İŞÇİLER 3 GÜNLÜK GREV\nİÇİN İZİN İSTİYOR.",
+        "ORDU BÜTÇEDE\n%15 ARTIŞ TALEBİ.",
+        "YENİ VAKIF KURULMASI\nİÇİN ONAY BEKLİYOR.",
+        "10 YILLIK VERGİ BORÇLARI\nSİLİNSİN Mİ?",
+        "MUHALEFET GAZETELERİ\nKAPATILSIN MI?",
+        "ÜNİVERSİTE KONTENJANLAR\nARTIRILSIN MI?",
+    };
+    // Sağa kaydırma etkileri: [halk, inanç, ekonomi, ordu]
+    private static final int[][] CARD_RIGHT = {
+        { 15, -5, -10,  5},
+        {-10, -5,  -5, 20},
+        {  5, 20,  -5, -5},
+        { 10, -5,  15, -5},
+        {-15, -5,   5,  5},
+        { 10,  5,  -5, -5},
+    };
+    private static final int[][] CARD_LEFT = {
+        {-10,  5,  10, -5},
+        {  5,  5,   5,-15},
+        { -5,-15,   5,  5},
+        { -5,  5, -10,  5},
+        { 10,  5,  -5, -5},
+        {-10, -5,   5,  5},
+    };
+    private int mCardIndex   = 0;
+    private int mKararSayisi = 0;
+    private static final int YIL_BASLANGIC = 1999;
+
     // ─── CONTEXT & MÜZİK ───────────────────────────────────────────────────
     private final Context         mCtx;
     private final AssetManager    mAssets;
@@ -220,6 +274,10 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         for (int i = 0; i < 6; i++) mTexCinema[i] = loadTexture(CINEMA_ASSETS[i]);
 
         mCinemaLast = System.currentTimeMillis();
+
+        // GameState başlat — barları senkronize et
+        mGameState.sifirla();
+        syncBarsFromState();
     }
 
     @Override
@@ -254,6 +312,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             case ST_MENU:     touchMenu(action, x, y);         break;
             case ST_SETTINGS: touchSettings(action, x, y);     break;
             case ST_FONTTEST: touchFontTest(action, x, y);     break;
+            case ST_GAME:     touchGame(action, x, y);         break;
         }
     }
 
@@ -819,23 +878,338 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    //  OYUN (ilerleyen sürümde dolacak)
+    //  OYUN EKRANı — Reigns Mekaniği
+    //
+    //  Layout (dikey mobil ekran):
+    //   ┌──────────────────────────────┐
+    //   │ [HALK] [İNANÇ] [EKO] [ORDU] │  ← stat barları  %0-15
+    //   │        ┌──────────┐          │
+    //   │        │  K A R T │          │  ← kart alanı    %20-75
+    //   │        └──────────┘          │
+    //   │  Yıl: 1999 | Unvan | Karar:0 │  ← alt bilgi     %88-100
+    //   └──────────────────────────────┘
     // ══════════════════════════════════════════════════════════════════════
 
     private void renderGame() {
-        float ps = gPS * 1.1f;
-        drawStringC("OYUN GELİYOR...", mH * 0.44f, ps, C_GOLD);
-        drawStringCWrapped("(Beklenti: Kart Sistemi)", mH * 0.56f, gPS * 0.75f, C_GDIM);
-
-        float bw = mUsableW * 0.50f;
-        float bh = Math.max(gPS * 9f, mH * 0.060f);
-        float bx = mW/2f - bw/2f, by = mH * 0.74f;
-        drawButton("MENÜYE DÖN", bx, by, bw, bh, false, false, false);
-
-        if (mTouchAction == MotionEvent.ACTION_UP && hit(mTouchX, mTouchY, bx, by, bw, bh)) {
-            mState = ST_MENU; mTouchAction = -1;
-        }
+        rect(0, 0, mW, mH, C_BG);
+        updateBarLerp();
+        drawStatBars();
+        drawGameCard();
+        drawSwipeHints();
+        drawInfoBar();
+        if (mGameState.oyunBitti) drawGameOver();
         scanLines();
+    }
+
+    // ── Stat Barları ─────────────────────────────────────────────────────────
+
+    private static final String[] BAR_LABELS = {"HALK", "INANC", "EKO", "ORDU"};
+
+    private void drawStatBars() {
+        float barsTop   = mPad * 0.8f;
+        float barsH     = mH * 0.13f;
+        float barW      = (mUsableW - mPad * 3f) / 4f;
+        float barGap    = mPad * 1.0f;
+        float labelPS   = gPS * 0.52f;
+        float valueBarH = barsH * 0.50f;
+        float valueBarY = barsTop + barsH * 0.38f;
+
+        for (int i = 0; i < 4; i++) {
+            float bx = mPad + i * (barW + barGap);
+
+            // Etiket
+            float labelX = bx + barW/2f - charWidth(BAR_LABELS[i], labelPS)/2f;
+            drawString(BAR_LABELS[i], labelX, barsTop, labelPS, C_GOLD);
+
+            // Bar arka planı
+            float[] bgC = {C_DARK[0], C_DARK[1], C_DARK[2], 1f};
+            rect(bx, valueBarY, barW, valueBarH, bgC);
+
+            // Bar dolgusu — renk: 0-25 kırmızı, 75-100 yeşil, orta altın
+            float pct   = mBarCurrent[i] / 100f;
+            float fillW = barW * pct;
+            float[] fillC = barFillColor(mBarCurrent[i]);
+            if (fillW > 0f) rect(bx, valueBarY, fillW, valueBarH, fillC);
+
+            // Çerçeve
+            float brd = Math.max(1f, gPS * 0.35f);
+            rect(bx,          valueBarY,             barW, brd,       C_GDIM);
+            rect(bx,          valueBarY+valueBarH-brd, barW, brd,     C_GDIM);
+            rect(bx,          valueBarY,             brd,   valueBarH, C_GDIM);
+            rect(bx+barW-brd, valueBarY,             brd,   valueBarH, C_GDIM);
+
+            // Yüzde değeri
+            String valStr = (int)mBarCurrent[i] + "%";
+            float valPS   = gPS * 0.45f;
+            float valX    = bx + barW/2f - charWidth(valStr, valPS)/2f;
+            drawString(valStr, valX, valueBarY + valueBarH + gPS*0.5f, valPS, C_GDIM);
+        }
+
+        // Ayraç çizgisi
+        float sepY = barsTop + barsH + gPS * 1.5f;
+        float[] sepC = {C_GDIM[0], C_GDIM[1], C_GDIM[2], 0.5f};
+        rect(mPad, sepY, mUsableW, Math.max(1f, gPS * 0.4f), sepC);
+    }
+
+    private float[] barFillColor(float val) {
+        if      (val <= 25f) return new float[]{0.72f, 0.12f, 0.08f, 1f};  // kırmızı
+        else if (val >= 75f) return new float[]{0.45f, 0.72f, 0.18f, 1f};  // yeşil
+        else                 return C_GOLD;                                   // altın
+    }
+
+    // ── Kart Çizimi ──────────────────────────────────────────────────────────
+
+    private void drawGameCard() {
+        if (mGameState.oyunBitti) return;
+
+        float cardW = mUsableW * 0.82f;
+        float cardH = mH * 0.48f;
+        float cardX = mW/2f - cardW/2f + mCardOffsetX;
+        float cardY = mH * 0.20f;
+
+        float swipeRatio = mCardOffsetX / (mW * 0.5f);  // -1..+1
+
+        // Gölge
+        float[] shadowC = {0.02f, 0.01f, 0.005f, 0.55f};
+        rect(cardX + gPS*1.5f, cardY + gPS*1.5f, cardW, cardH, shadowC);
+
+        // Kart arka planı
+        rect(cardX, cardY, cardW, cardH, C_DARK);
+
+        // Kenarlık — swipe yönüne göre renk değişir
+        float[] borderC;
+        if (swipeRatio > 0.15f) {
+            float t = Math.min(1f, (swipeRatio - 0.15f) / 0.6f);
+            borderC = new float[]{0.15f*(1-t)+0.3f*t, 0.5f*(1-t)+0.85f*t, 0.1f*t, 1f};
+        } else if (swipeRatio < -0.15f) {
+            float t = Math.min(1f, (-swipeRatio - 0.15f) / 0.6f);
+            borderC = new float[]{0.5f*(1-t)+0.85f*t, 0.08f*t, 0.04f*t, 1f};
+        } else {
+            borderC = C_GDIM;
+        }
+        float brd = Math.max(2f, gPS * 0.6f);
+        rect(cardX,          cardY,          cardW, brd,   borderC);
+        rect(cardX,          cardY+cardH-brd,cardW, brd,   borderC);
+        rect(cardX,          cardY,          brd,   cardH, borderC);
+        rect(cardX+cardW-brd,cardY,          brd,   cardH, borderC);
+
+        // Kart numarası (sol üst)
+        String numStr = "#" + (mCardIndex + 1);
+        float numPS = gPS * 0.55f;
+        float[] greyD = {C_GREY[0], C_GREY[1], C_GREY[2], 0.55f};
+        drawString(numStr, cardX + gPS*2f, cardY + gPS*2f, numPS, greyD);
+
+        // Kart başlığı
+        String title   = CARD_TITLES[mCardIndex % CARD_TITLES.length];
+        float  titlePS = fitTextPS(title, cardW * 0.80f, gPS * 0.95f);
+        float  titleX  = cardX + cardW/2f - charWidth(title, titlePS)/2f;
+        float  titleY  = cardY + cardH * 0.14f;
+        drawString(title, titleX, titleY, titlePS, C_GOLD);
+
+        // Başlık altı ayraç
+        float[] divC = {C_GDIM[0], C_GDIM[1], C_GDIM[2], 0.65f};
+        rect(cardX + gPS*3f, titleY + titlePS*11f, cardW - gPS*6f,
+             Math.max(1f, gPS*0.4f), divC);
+
+        // Kart metni (ortalı, sarılmış)
+        String text   = CARD_TEXTS[mCardIndex % CARD_TEXTS.length];
+        float  textPS = gPS * 0.72f;
+        List<String> lines = wrapText(text, cardW * 0.76f, textPS);
+        float lineH      = textPS * 11f;
+        float totalTextH = lines.size() * lineH;
+        float textY      = cardY + cardH * 0.38f - totalTextH/2f;
+        float minTextY   = titleY + titlePS * 13f;
+        if (textY < minTextY) textY = minTextY;
+        for (int i = 0; i < lines.size(); i++) {
+            drawStringC(lines.get(i), textY + i*lineH, textPS, C_GOLD);
+        }
+
+        // Karar ipucu (alt kısım)
+        float hintY  = cardY + cardH * 0.82f;
+        float hintPS = gPS * 0.52f;
+        float[] hintC = {C_GREY[0], C_GREY[1], C_GREY[2], 0.55f};
+        drawStringC("< RET  |  ONAYLA >", hintY, hintPS, hintC);
+
+        // Swipe etiketi: EVET / HAYIR
+        if (Math.abs(swipeRatio) > 0.18f) {
+            float labelAlpha = Math.min(1f, (Math.abs(swipeRatio) - 0.18f) / 0.5f);
+            String swipeLabel = swipeRatio > 0 ? "EVET" : "HAYIR";
+            float[] labelColor = swipeRatio > 0
+                ? new float[]{0.3f, 0.85f, 0.25f, labelAlpha}
+                : new float[]{0.85f, 0.2f, 0.15f, labelAlpha};
+            float lblPS = gPS * 1.5f;
+            float lblX  = cardX + cardW/2f - charWidth(swipeLabel, lblPS)/2f;
+            drawString(swipeLabel, lblX, cardY + cardH * 0.46f, lblPS, labelColor);
+        }
+    }
+
+    // ── Swipe İpucu Okları ────────────────────────────────────────────────────
+
+    private void drawSwipeHints() {
+        if (mGameState.oyunBitti || mSwiping) return;
+        float[] arrowC = {C_GDIM[0], C_GDIM[1], C_GDIM[2], 0.32f};
+        float midY = mH * 0.45f;
+        float arPS = gPS * 1.1f;
+        drawString("<", mPad * 0.5f, midY, arPS, arrowC);
+        float gtW = charWidth(">", arPS);
+        drawString(">", mW - mPad * 0.5f - gtW, midY, arPS, arrowC);
+    }
+
+    // ── Alt Bilgi Çubuğu ─────────────────────────────────────────────────────
+
+    private void drawInfoBar() {
+        float barY = mH * 0.88f;
+        float barH = mH * 0.12f;
+
+        float[] ibgC = {C_DARK[0]*0.8f, C_DARK[1]*0.8f, C_DARK[2]*0.8f, 0.95f};
+        rect(0, barY, mW, barH, ibgC);
+        float[] sepC = {C_GDIM[0], C_GDIM[1], C_GDIM[2], 0.55f};
+        rect(0, barY, mW, Math.max(1f, gPS * 0.4f), sepC);
+
+        int    yil      = YIL_BASLANGIC + mKararSayisi / 10;
+        String unvan    = getUnvan(mKararSayisi);
+        String infoText = "YIL:" + yil + "  " + unvan + "  KARAR:" + mKararSayisi;
+
+        float infoPS = fitTextPS(infoText, mUsableW * 0.92f, gPS * 0.62f);
+        float infoX  = mW/2f - charWidth(infoText, infoPS)/2f;
+        float infoY  = barY + barH/2f - infoPS * 4.5f;
+        drawString(infoText, infoX, infoY, infoPS, C_GOLD);
+    }
+
+    private String getUnvan(int karar) {
+        if (karar <  5) return "YENİ ÜYE";
+        if (karar < 15) return "BÜROKRAT";
+        if (karar < 30) return "MÜŞAVİR";
+        if (karar < 50) return "BAKAN";
+        return "BAŞKAN";
+    }
+
+    // ── Oyun Sonu ────────────────────────────────────────────────────────────
+
+    private void drawGameOver() {
+        float[] ov = {0.02f, 0.01f, 0.005f, 0.82f};
+        rect(0, 0, mW, mH, ov);
+
+        float cx = mW / 2f;
+
+        float titlePS = fitTextPS("OYUN BİTTİ", mUsableW * 0.75f, gPS * 1.4f);
+        drawStringC("OYUN BİTTİ", mH * 0.22f, titlePS, C_GOLD);
+
+        String reason = getGameOverReason();
+        drawStringCWrapped(reason, mH * 0.35f, gPS * 0.68f, C_GDIM);
+
+        String karStr = mKararSayisi + " KARAR VERDİN";
+        float kPS = fitTextPS(karStr, mUsableW * 0.70f, gPS * 0.80f);
+        drawStringC(karStr, mH * 0.52f, kPS, C_GOLD);
+
+        // Yeniden Oyna
+        float bw  = mUsableW * 0.60f;
+        float bh  = Math.max(gPS * 9f, mH * 0.065f);
+        float bx  = cx - bw/2f, by = mH * 0.65f;
+        drawButton("YENİDEN OYNA", bx, by, bw, bh, false, false, false);
+
+        // Menüye Dön
+        float bw2 = mUsableW * 0.50f;
+        float bh2 = Math.max(gPS * 8f, mH * 0.058f);
+        float bx2 = cx - bw2/2f, by2 = mH * 0.76f;
+        drawButton("MENU", bx2, by2, bw2, bh2, false, false, false);
+
+        if (mTouchAction == MotionEvent.ACTION_UP) {
+            if (hit(mTouchX, mTouchY, bx, by, bw, bh)) {
+                restartGame(); mTouchAction = -1;
+            } else if (hit(mTouchX, mTouchY, bx2, by2, bw2, bh2)) {
+                mState = ST_MENU; mTouchAction = -1;
+            }
+        }
+    }
+
+    private String getGameOverReason() {
+        if (mGameState.halk    <=  0) return "HALK AYAKLANDIS!";
+        if (mGameState.halk    >= 100) return "HALK KONTROLDEN CIKTI.";
+        if (mGameState.inanc   <=  0) return "DİN KURUMU SANA KARS DONDÜ.";
+        if (mGameState.inanc   >= 100) return "DİNİ BASKILAR REJIMI BOGDU.";
+        if (mGameState.ekonomi <=  0) return "HAZİNE CÖKTÜ. DEVLET İFLAS ETTİ.";
+        if (mGameState.ekonomi >= 100) return "SERMAYE DEVLETI ELE GECİRDİ.";
+        if (mGameState.ordu    <=  0) return "ORDU SADAKATI SONA ERDİ.";
+        if (mGameState.ordu    >= 100) return "ASKERİ DARBE GERCEKLESTİ.";
+        return "BİR DENGE BOZULDU.";
+    }
+
+    private void restartGame() {
+        mGameState.sifirla();
+        syncBarsFromState();
+        mCardIndex   = 0;
+        mKararSayisi = 0;
+        mCardOffsetX = 0f;
+        mSwiping     = false;
+        mSwipeDir    = 0;
+    }
+
+    // ── Bar Senkronizasyonu ───────────────────────────────────────────────────
+
+    private void syncBarsFromState() {
+        mBarTarget[0] = mGameState.halk;
+        mBarTarget[1] = mGameState.inanc;
+        mBarTarget[2] = mGameState.ekonomi;
+        mBarTarget[3] = mGameState.ordu;
+    }
+
+    private void updateBarLerp() {
+        for (int i = 0; i < 4; i++) {
+            float diff = mBarTarget[i] - mBarCurrent[i];
+            if (Math.abs(diff) < 0.4f) mBarCurrent[i] = mBarTarget[i];
+            else                        mBarCurrent[i] += diff * 0.12f;
+        }
+    }
+
+    // ── Kart Kararı ──────────────────────────────────────────────────────────
+
+    private void applyCardDecision(boolean right) {
+        int   idx     = mCardIndex % CARD_TITLES.length;
+        int[] effects = right ? CARD_RIGHT[idx] : CARD_LEFT[idx];
+        mGameState.halkEkle   (effects[0]);
+        mGameState.inancEkle  (effects[1]);
+        mGameState.ekonomiEkle(effects[2]);
+        mGameState.orduEkle   (effects[3]);
+        syncBarsFromState();
+        mCardIndex++;
+        mKararSayisi++;
+        mCardOffsetX = 0f;
+        mSwiping     = false;
+        mSwipeDir    = 0;
+    }
+
+    // ── touchGame ────────────────────────────────────────────────────────────
+
+    private void touchGame(int action, float x, float y) {
+        if (mGameState.oyunBitti) return;
+
+        switch (action) {
+            case MotionEvent.ACTION_DOWN:
+                mSwipeStartX = x;
+                mSwipeStartY = y;
+                mSwiping     = true;
+                break;
+
+            case MotionEvent.ACTION_MOVE:
+                if (!mSwiping) break;
+                mCardOffsetX = x - mSwipeStartX;
+                mSwipeDir    = (mCardOffsetX > 0) ? 1 : (mCardOffsetX < 0) ? -1 : 0;
+                break;
+
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_CANCEL:
+                if (!mSwiping) break;
+                float totalDx = x - mSwipeStartX;
+                if (Math.abs(totalDx) >= SWIPE_THRESHOLD) {
+                    applyCardDecision(totalDx > 0);
+                } else {
+                    mCardOffsetX = 0f;
+                    mSwipeDir    = 0;
+                    mSwiping     = false;
+                }
+                break;
+        }
     }
 
     // ══════════════════════════════════════════════════════════════════════
