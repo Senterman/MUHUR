@@ -1,0 +1,555 @@
+{
+  "scenario": "Opposition_1",
+  "party": "HSP",
+  "cards": [
+
+    {
+      "id": "OPP1-001",
+      "character": "secretary_leyla",
+      "flavor": "Leyla Hanim masaniza bir form uzatiyor.",
+      "text": "Uyelik formunuzu doldurmaniz gerekiyor. Iki kopya. Birisi sizde kalir, birisi dosyaya gider. Kalemim var ama siz kendinizinkini kullanin, cunku benimki sizmayi basladi ve sonra her sey mavi oluyor. Tecrubeden soyluyor.",
+      "choiceLeft":  { "label": "Kendi kalemimle",   "halk": 0,  "ordu": 0, "din": 0,  "para": 0  },
+      "choiceRight": { "label": "Tek kopya yetmez mi?", "halk": 1,  "ordu": 0, "din": 0,  "para": -1 },
+      "prerequisite": null,
+      "unlocks": ["OPP1-002"],
+      "act": 1,
+      "yearOffset": 0
+    },
+
+    {
+      "id": "OPP1-002",
+      "character": "inspector_mehmet",
+      "flavor": "Mehmet dosyasiyla birlikte kapida beliriyor.",
+      "text": "Genel Merkez'den mesajim var. 'Yeni uyeye tecrube kazandirin' diyorlar. Ben de dusundum: neden Balikesir subesinin 1997 tarihli muhasebe denetimini birlikte gozden gecirelim? Heyecan verici bir baslangic olmaz mi?",
+      "choiceLeft":  { "label": "Baska gorev var mi?",    "halk": -1, "ordu": 0, "din": 0,  "para": 2  },
+      "choiceRight": { "label": "Ne zaman baslariz?",     "halk": 2,  "ordu": 0, "din": 0,  "para": 3  },
+      "prerequisite": "OPP1-001",
+      "unlocks": ["OPP1-003"],
+      "act": 1,
+      "yearOffset": 0
+    },
+
+    {
+      "id": "OPP1-003",
+      "character": "student_zeynep",
+      "flavor": "Zeynep, koridorda onunuzu kesiyor.",
+      "text": "Sizi bekliyordum. Genclik Kollari toplantisi bugün saat 17:00'de. Genel merkez delegesi olarak katilir misiniz? Onemli: liderlik bu toplantiyi 'gozlemlemeyi' istiyor. Ne gozlemleyeceklerini biliyorum ama sormayin.",
+      "choiceLeft":  { "label": "Bugun baska islerim var", "halk": -3, "ordu": 0, "din": 0,  "para": 1  },
+      "choiceRight": { "label": "Tabii, gelirim",          "halk": 4,  "ordu": -1,"din": 0,  "para": 0  },
+      "prerequisite": "OPP1-002",
+      "unlocks": ["OPP1-004"],
+      "act": 1,
+      "yearOffset": 0,
+      "branchNote": "SAG secim Perde 2 Dal A'yi acar"
+    },
+
+    {
+      "id": "OPP1-004",
+      "character": "old_voter_ali",
+      "flavor": "Parti binasinin onunde Ali Amca sizi bekliyor.",
+      "text": "Yeni misiniz siz? Tanimadim. Ben her secimde buraya oy verdim. Ama bir sorum var: Gecen sefer 'emekli maaslarini arttiracagiz' dediniz. Artirdiniz mi? Hee?",
+      "choiceLeft":  { "label": "Benim donemim degildi", "halk": -5, "ordu": 0, "din": 0,  "para": 0  },
+      "choiceRight": { "label": "Haklisiniz, soracagiz", "halk": 3,  "ordu": 0, "din": 0,  "para": -2 },
+      "prerequisite": "OPP1-003",
+      "unlocks": ["OPP1-005"],
+      "act": 1,
+      "yearOffset": 0
+    },
+
+    {
+      "id": "OPP1-005",
+      "character": "secretary_leyla",
+      "flavor": "Leyla Hanim, ayni anda uc dosyayla birden beliriyor.",
+      "text": "Simdi size uc sey soyliyecegim. Birincisi: Yarin sabah 9'da basin aciklamasi var, orada olmaniz lazim. Ikincisi: O basin aciklamasinin metni henuz yazilmadi. Ucuncusu: Yazan siz olacaksiniz. Iyi geceler.",
+      "choiceLeft":  { "label": "Ben yazmayi bilmem",      "halk": -2, "ordu": 0, "din": 0,  "para": 1  },
+      "choiceRight": { "label": "Ne hakkinda yazacagim?",  "halk": 5,  "ordu": 0, "din": 1,  "para": 0  },
+      "prerequisite": "OPP1-004",
+      "unlocks": ["OPP1-006"],
+      "act": 1,
+      "yearOffset": 0
+    },
+
+    {
+      "id": "OPP1-006",
+      "character": "journalist_can",
+      "flavor": "Parti binasinin onunde birisi fotograf cekiyor.",
+      "text": "Birisi partinin onunden fotograf cekiyor. Parti binasi, girip cikan insanlar. Sizi de cekti saniyorum. Kim oldugu bilinmiyor.",
+      "choiceLeft":  { "label": "Basin serbesttir",      "halk": 2,  "ordu": -1, "din": 0,  "para": 0  },
+      "choiceRight": { "label": "Guvenligi bildirin",    "halk": -3, "ordu": 2,  "din": 0,  "para": 0  },
+      "prerequisite": "OPP1-005",
+      "unlocks": ["OPP1-007"],
+      "act": 1,
+      "yearOffset": 0
+    },
+
+    {
+      "id": "OPP1-007",
+      "character": "inspector_mehmet",
+      "flavor": "Mehmet bu sefer iki dosyayla geliyor. Biri mavi, biri kirmizi.",
+      "text": "Ikisi de acil. Mavi olan: Ankara'dan mali yardim talebi, onaylanmazsa sube kapaniyor. Kirmizi olan: Uye listesindeki bir isim... rahatsiz edici bir gecmise sahip. Ne yapalim once?",
+      "choiceLeft":  { "label": "Mavi dosya, sube kapanmasin", "halk": -2, "ordu": 0,  "din": 0,  "para": 6  },
+      "choiceRight": { "label": "Kirmizi dosyayi anlat",       "halk": 4,  "ordu": -1, "din": 0,  "para": -4 },
+      "prerequisite": "OPP1-006",
+      "unlocks": ["OPP1-008"],
+      "act": 1,
+      "yearOffset": 0,
+      "branchNote": "Kirmizi dosya Perde 3'te geri doner"
+    },
+
+    {
+      "id": "OPP1-008",
+      "character": "secretary_leyla",
+      "flavor": "Bir zarf birakiyor masaniza.",
+      "text": "Bu bir hayirseverden bagis. Ismi yok. Miktari... fazla. Yonetmelik geregi kaynagini arastirmak gerekiyor. Ama arastirmak zaman alir. Ve zaman para...",
+      "choiceLeft":  { "label": "Arastirin, sonra karar",    "halk": 2,  "ordu": 1,  "din": 0,  "para": -3 },
+      "choiceRight": { "label": "Kabul edin",                "halk": -3, "ordu": 0,  "din": -2, "para": 8  },
+      "prerequisite": "OPP1-007",
+      "unlocks": ["OPP1-009"],
+      "act": 1,
+      "yearOffset": 0,
+      "branchNote": "Kirli para tohumlanmasi"
+    },
+
+    {
+      "id": "OPP1-009",
+      "character": "old_voter_ali",
+      "flavor": "Ali amca bu sefer icerde, bekleme salonunda oturuyor.",
+      "text": "Bir komsum var, isten cikardildi. Sigortasi yok, iki cocugu var. Partiye soyledim, dediler ki 'dilek yazin.' Ben de yazdim. Uc aydir cevap yok. Siz yeni adam olarak ne yapiyorsunuz?",
+      "choiceLeft":  { "label": "Ilgili birime yonlendirelim", "halk": -4, "ordu": 0, "din": 0,  "para": 0  },
+      "choiceRight": { "label": "Ben bizzat takip edecegim",   "halk": 6,  "ordu": 0, "din": 0,  "para": -1 },
+      "prerequisite": "OPP1-008",
+      "unlocks": ["OPP1-010"],
+      "act": 1,
+      "yearOffset": 0
+    },
+
+    {
+      "id": "OPP1-010",
+      "character": "inspector_mehmet",
+      "flavor": "Mehmet, nadir gorulen bir gulumsiyor.",
+      "text": "Iyi haberim var. Kotu haberim de var. Iyi haber: Izmir subesi rekor uye kaydetti. Kotu haber: Bu uyelerin yarisi ayni adreste gozukuyor. Tesaduf mu dersiniz?",
+      "choiceLeft":  { "label": "Sayi iyiyse iyidir",    "halk": -5, "ordu": -2, "din": 0,  "para": 3  },
+      "choiceRight": { "label": "Iptal et ve sorustur",  "halk": 5,  "ordu": 0,  "din": 0,  "para": -2 },
+      "prerequisite": "OPP1-009",
+      "unlocks": ["OPP1-011"],
+      "act": 1,
+      "yearOffset": 0
+    },
+
+    {
+      "id": "OPP1-011",
+      "character": "student_zeynep",
+      "flavor": "Zeynep, kagitlarla dolu bir cantayla geliyor.",
+      "text": "Imzanizi istiyorum. Universite ogrencilerine yonelik kisitlayici yonetmeligi itiraz dileksesi. 847 imza topladim. Sizinkiyle 848 olacak. Ya da olmayacak.",
+      "choiceLeft":  { "label": "Hukuki inceleme once",  "halk": -3, "ordu": 0, "din": 1,  "para": 0  },
+      "choiceRight": { "label": "Imzalayim",             "halk": 7,  "ordu": -3,"din": -2, "para": 0  },
+      "prerequisite": "OPP1-010",
+      "unlocks": ["OPP1-012"],
+      "act": 1,
+      "yearOffset": 0,
+      "branchNote": "SAG: Perde 2 Dal A icin kritik"
+    },
+
+    {
+      "id": "OPP1-012",
+      "character": "journalist_can",
+      "flavor": "Bu sefer bizzat ofise geliyor.",
+      "text": "Can Arslan, Hur Haber. Kisa bir soru: HSP'nin finans kaynaklarinda... gorunmez bir el var mi diyebilir miyiz? 'Hayir' diyebilirsiniz tabii. Ama 'hayir' da haber olur bazen.",
+      "choiceLeft":  { "label": "Hicbir yorum yapmam",       "halk": -2, "ordu": 0, "din": 0,  "para": 2  },
+      "choiceRight": { "label": "Seffaflikla geliriz, randevu", "halk": 4,  "ordu": 0, "din": 0,  "para": -3 },
+      "prerequisite": "OPP1-011",
+      "unlocks": ["OPP1-013"],
+      "act": 1,
+      "yearOffset": 0
+    },
+
+    {
+      "id": "OPP1-013",
+      "character": "inspector_mehmet",
+      "flavor": "Dosya yine var ama bu sefer ince.",
+      "text": "Perde 1'in son ozeti gibi bir sey bu. Genel durumu yazdim. HALK bariniz nerede, PARA'niz nerede, hangi kararlardan etkilendik. Okumak ister misiniz?",
+      "choiceLeft":  { "label": "Sonra bakarim",   "halk": 0,  "ordu": 0, "din": 0,  "para": 0  },
+      "choiceRight": { "label": "Goster",          "halk": 1,  "ordu": 0, "din": 0,  "para": 0  },
+      "prerequisite": "OPP1-012",
+      "unlocks": ["OPP1-014"],
+      "act": 1,
+      "yearOffset": 0
+    },
+
+    {
+      "id": "OPP1-014",
+      "character": "secretary_leyla",
+      "flavor": "Ilk kez ciddi bir yuzle geliyor.",
+      "text": "Perde 2 baslamadan once soyliyeyim: Zeynep'in grubu ile parti yonetimi arasindaki gerilim artiyor. Bir tercih yapmaniz gerekecek. Henuz degil. Ama yakinda.",
+      "choiceLeft":  { "label": "Kopru olurum",              "halk": 2,  "ordu": 0, "din": 0,  "para": 0  },
+      "choiceRight": { "label": "Bu durumu takip ederim",    "halk": 1,  "ordu": 0, "din": 1,  "para": 0  },
+      "prerequisite": "OPP1-013",
+      "unlocks": ["OPP1-015"],
+      "act": 1,
+      "yearOffset": 0
+    },
+
+    {
+      "id": "OPP1-015",
+      "character": "old_voter_ali",
+      "flavor": "Cikarken kapida karsilasiyorsunuz.",
+      "text": "Yine de umarim bu sefer farklidir. Yani... umarim. Kasketini duzletiyor ve gidiyor.",
+      "choiceLeft":  { "label": "Evet, bu sefer farkli",   "halk": 3,  "ordu": 0, "din": 0,  "para": 0  },
+      "choiceRight": { "label": "Ben de umarim, Ali Amca", "halk": 2,  "ordu": 0, "din": 1,  "para": 0  },
+      "prerequisite": "OPP1-014",
+      "unlocks": ["OPP1-016A", "OPP1-016B"],
+      "act": 1,
+      "yearOffset": 1,
+      "branchNote": "Perde 1 kapanisi — Perde 2 baslar"
+    },
+
+    {
+      "id": "OPP1-016A",
+      "character": "student_zeynep",
+      "flavor": "Zeynep, enerjiyle ofise giriyor.",
+      "text": "Harika haberlerim var! Universitelerde 200 yeni uye. Ama yonetim 'kontrolsuz buyume' diyor. Siz ne dusunuyorsunuz?",
+      "choiceLeft":  { "label": "Yonetimle koordineli",    "halk": 2,  "ordu": 0, "din": 0,  "para": -2 },
+      "choiceRight": { "label": "Bu buyume surdurmeli",    "halk": 8,  "ordu": -2,"din": 0,  "para": -4 },
+      "prerequisite": "OPP1-015",
+      "requiresCompletedCards": ["OPP1-011", "OPP1-003"],
+      "unlocks": ["OPP1-017"],
+      "act": 2,
+      "branch": "A",
+      "yearOffset": 0
+    },
+
+    {
+      "id": "OPP1-016B",
+      "character": "inspector_mehmet",
+      "flavor": "Mehmet ciddi adimlarla geliyor.",
+      "text": "Zeynep'in hareketiyle mesafe koydunuz, yonetim memnun. Ama saha bize guvenmiyor artik. Nasil ilerliyoruz?",
+      "choiceLeft":  { "label": "Kademeli uzlasi",      "halk": 1,  "ordu": 0, "din": 0,  "para": 2  },
+      "choiceRight": { "label": "Taban kazanmak once",  "halk": 4,  "ordu": 0, "din": 0,  "para": -1 },
+      "prerequisite": "OPP1-015",
+      "unlocks": ["OPP1-017"],
+      "act": 2,
+      "branch": "B",
+      "yearOffset": 0
+    },
+
+    {
+      "id": "OPP1-017",
+      "character": "general_rifat",
+      "flavor": "General Rifat bizzat ziyarete geliyor. Uniformalari yok, sivil.",
+      "text": "Ordunun siyasi partilerle ilgisi olmaz. Ama olur ya... bazen ilgi duyariz. HSP'nin son 'genclik hamlesi' dikkatimizi cekti. Bir... yorum yapabilir misiniz?",
+      "choiceLeft":  { "label": "Demokratik bir hareket",  "halk": 3,  "ordu": -3, "din": 0,  "para": 0  },
+      "choiceRight": { "label": "Kontrolumuz altinda",     "halk": -2, "ordu": 3,  "din": 0,  "para": 0  },
+      "prerequisite": "OPP1-016A",
+      "unlocks": ["OPP1-018"],
+      "act": 2,
+      "yearOffset": 0
+    },
+
+    {
+      "id": "OPP1-018",
+      "character": "secretary_leyla",
+      "flavor": "Leyla Hanim beklenmedik bir bilgi getiriyor.",
+      "text": "Parti lideri sizi gormek istiyor. Ozel gorusme. Konu: 'Zeynep meselesi.' Ayni gun Bay X'ten de bir mesaj geldi. O da gormek istiyor. Kimi once gormek istiyorsunuz?",
+      "choiceLeft":  { "label": "Parti lideri once",  "halk": 0,  "ordu": 2,  "din": 1,  "para": 0  },
+      "choiceRight": { "label": "Bay X once",         "halk": 0,  "ordu": -1, "din": 0,  "para": 0  },
+      "prerequisite": "OPP1-017",
+      "unlocks": ["OPP1-019"],
+      "act": 2,
+      "yearOffset": 0
+    },
+
+    {
+      "id": "OPP1-019",
+      "character": "spy_x",
+      "flavor": "Bay X sizi bekliyor. Masada hicbir sey yok.",
+      "text": "Sizi dinliyorum.",
+      "choiceLeft":  { "label": "Ben de sizi, Bay X",           "halk": 0,  "ordu": 0,  "din": 0,  "para": 0  },
+      "choiceRight": { "label": "Neden burada oldugunuzu biliyorum", "halk": 0,  "ordu": -1, "din": 0,  "para": 0  },
+      "prerequisite": "OPP1-018",
+      "unlocks": ["OPP1-020"],
+      "act": 2,
+      "yearOffset": 0
+    },
+
+    {
+      "id": "OPP1-020",
+      "character": "student_zeynep",
+      "flavor": "Zeynep bu sefer tek basina, sakin geliyor.",
+      "text": "Bir sey sormak istiyorum. Dogrudan. Biz dogru yolda miyiz? Yani gercekten... yoksa sadece roll oynuyor muyuz?",
+      "choiceLeft":  { "label": "Dogru yoldayiz",         "halk": 4,  "ordu": 0,  "din": 0,  "para": 0  },
+      "choiceRight": { "label": "Bu soru cok buyuk benim icin de", "halk": 6,  "ordu": 0,  "din": 2,  "para": 0  },
+      "prerequisite": "OPP1-019",
+      "unlocks": ["OPP1-021"],
+      "act": 2,
+      "yearOffset": 0
+    },
+
+    {
+      "id": "OPP1-021",
+      "character": "inspector_mehmet",
+      "flavor": "Mehmet yeni bir dosya getiriyor, bu sefer daha kalin.",
+      "text": "Bolgeden raporlar geldi. Iki subede usulsuzluk. Biri kucuk, biri buyuk. Kucugu kapatacagim, buyugu... sizin karari bekliyorum.",
+      "choiceLeft":  { "label": "Ikisini de kapat",       "halk": 5,  "ordu": 0,  "din": 0,  "para": -4 },
+      "choiceRight": { "label": "Buyugu sonraya birak",   "halk": -3, "ordu": 0,  "din": 0,  "para": 4  },
+      "prerequisite": "OPP1-020",
+      "unlocks": ["OPP1-022"],
+      "act": 2,
+      "yearOffset": 0
+    },
+
+    {
+      "id": "OPP1-022",
+      "character": "old_voter_ali",
+      "flavor": "Ali amca gazete tutmus, okuyordu.",
+      "text": "Bu haberi okudum. HSP hakkinda. Iyi seyler yazmislar ama... su cumle beni dusundurdu: 'Parti icerisinde farkli sesler var.' Bu dogru mu? Birbirinizi yiyor musunuz?",
+      "choiceLeft":  { "label": "Demokratik tartisma normal", "halk": 3,  "ordu": 0,  "din": 0,  "para": 0  },
+      "choiceRight": { "label": "Iceride sorunlar var, cozuyoruz", "halk": 5,  "ordu": 0,  "din": 0,  "para": -1 },
+      "prerequisite": "OPP1-021",
+      "unlocks": ["OPP1-023"],
+      "act": 2,
+      "yearOffset": 0
+    },
+
+    {
+      "id": "OPP1-023",
+      "character": "journalist_can",
+      "flavor": "Can bir zarf uzatiyor, ici bos.",
+      "text": "Bu zarfi size verdim cunku icine ne koyacaginizi siz bilmelisiniz. Yani: HSP'nin 'kayip yili' hakkinda konusmaya hazir misiniz? Kayit yok. Sadece konusuruz.",
+      "choiceLeft":  { "label": "Bu konusmadan kacinarim",   "halk": -2, "ordu": 0,  "din": 0,  "para": 1  },
+      "choiceRight": { "label": "Anlatirim ne olduğunu",     "halk": 6,  "ordu": -1, "din": 0,  "para": -2 },
+      "prerequisite": "OPP1-022",
+      "unlocks": ["OPP1-024"],
+      "act": 2,
+      "yearOffset": 0
+    },
+
+    {
+      "id": "OPP1-024",
+      "character": "secretary_leyla",
+      "flavor": "Leyla Hanim kapi araligindan bakiyor.",
+      "text": "Yarin parti meclisi. Gundemde Zeynep'in grubu var. Oy kullanmaniz gerekecek. Nasil oy kullanacaginizi bilmek istiyorum.",
+      "choiceLeft":  { "label": "Zeynep'in yaninda",     "halk": 7,  "ordu": -2, "din": -1, "para": -2 },
+      "choiceRight": { "label": "Parti disiplininden yana", "halk": -4, "ordu": 2,  "din": 1,  "para": 2  },
+      "prerequisite": "OPP1-023",
+      "unlocks": ["OPP1-025"],
+      "act": 2,
+      "yearOffset": 0
+    },
+
+    {
+      "id": "OPP1-025",
+      "character": "general_rifat",
+      "flavor": "Gorusme resmi. Uniformal bu sefer.",
+      "text": "Parti meclisindeki oy... takdire sayan. Ordu olarak bazi kararlar izliyoruz. Sizin karar... ilginc. Devam ederseniz, bu ilgi... devam eder.",
+      "choiceLeft":  { "label": "Ordunun endisesini anliyorum", "halk": -3, "ordu": 5,  "din": 0,  "para": 0  },
+      "choiceRight": { "label": "Siyasi kararlara karismayin",  "halk": 4,  "ordu": -4, "din": 0,  "para": 0  },
+      "prerequisite": "OPP1-024",
+      "unlocks": ["OPP1-026"],
+      "act": 2,
+      "yearOffset": 0
+    },
+
+    {
+      "id": "OPP1-026",
+      "character": "inspector_mehmet",
+      "flavor": "Mehmet odaya giriyor. Kapi kapattiyor. Masaya oturuyor.",
+      "text": "Size soylememem gereken bir sey var. Ama soyliyecegim. Parti muhasebecisi gecen ay beni aradi. Bir dosya var. Icerisinde... cok buyuk bir isim var. Devam edeyim mi?",
+      "choiceLeft":  { "label": "Devam et",        "halk": 0,  "ordu": 0,  "din": 0,  "para": 0  },
+      "choiceRight": { "label": "Dur, dusuneyim",  "halk": 0,  "ordu": 0,  "din": 0,  "para": 0  },
+      "prerequisite": "OPP1-025",
+      "unlocks": ["OPP1-027"],
+      "act": 2,
+      "yearOffset": 0,
+      "branchNote": "Perde 3 ana olayinin tohumlanmasi"
+    },
+
+    {
+      "id": "OPP1-027",
+      "character": "student_zeynep",
+      "flavor": "Zeynep kosarak geliyor, nefes nefese.",
+      "text": "Universitelerde polis baskini. Bizim ogrencilerden uc kisinin gozaltina alindi. Basina haber oldu. Siz ne yapacaksiniz?",
+      "choiceLeft":  { "label": "Hukuki destek organize edelim", "halk": 5,  "ordu": -2, "din": 0,  "para": -1 },
+      "choiceRight": { "label": "Resmi aciklama bekleyelim",     "halk": -4, "ordu": 1,  "din": 0,  "para": 0  },
+      "prerequisite": "OPP1-026",
+      "unlocks": ["OPP1-028"],
+      "act": 2,
+      "yearOffset": 0
+    },
+
+    {
+      "id": "OPP1-028",
+      "character": "old_voter_ali",
+      "flavor": "Ali amca uzun sure beklemis, oldukca yorgun.",
+      "text": "Ogullarimin ikisi de partide calisiyordu. Biri Perde 1'de ayrildi. Digeri dun istifa etti. Bana sorun efendim: Bu partide kalmak mantikli mi?",
+      "choiceLeft":  { "label": "Bu parti degisiyor, kalmaya deger", "halk": 4,  "ordu": 0,  "din": 0,  "para": 0  },
+      "choiceRight": { "label": "Vic karar vermek size dusuyor",     "halk": 2,  "ordu": 0,  "din": 2,  "para": 0  },
+      "prerequisite": "OPP1-027",
+      "unlocks": ["OPP1-029"],
+      "act": 2,
+      "yearOffset": 0
+    },
+
+    {
+      "id": "OPP1-029",
+      "character": "journalist_can",
+      "flavor": "Can kafenin kosesinde oturuyor, neredeyse gizleniyor.",
+      "text": "Bir bilgi satacagim size. Bedava. Ama karsiliginda bir sey isteyecegim. Duymak ister misiniz? Yoksa kalkin gidin.",
+      "choiceLeft":  { "label": "Dinleyeyim",         "halk": 0,  "ordu": 0,  "din": 0,  "para": 0  },
+      "choiceRight": { "label": "Gidiyorum",           "halk": 0,  "ordu": 1,  "din": 0,  "para": 1  },
+      "prerequisite": "OPP1-028",
+      "unlocks": ["OPP1-030"],
+      "act": 2,
+      "yearOffset": 0
+    },
+
+    {
+      "id": "OPP1-030",
+      "character": "secretary_leyla",
+      "flavor": "Sezon sonu. Leyla Hanim son bir brifingi yapiyor.",
+      "text": "Perde 2 bitti. Zeynep hala burada. Mehmet'in dosyasi hala masada. General Rifat bizi izliyor. Bay X'in niyeti belirsiz. Perde 3'e hazir misiniz?",
+      "choiceLeft":  { "label": "Hazir degilim ama giderim",  "halk": 2,  "ordu": 0,  "din": 0,  "para": 0  },
+      "choiceRight": { "label": "Her zaman hazir",            "halk": 0,  "ordu": 0,  "din": 1,  "para": 1  },
+      "prerequisite": "OPP1-029",
+      "unlocks": ["OPP1-031"],
+      "act": 2,
+      "yearOffset": 1,
+      "branchNote": "Perde 2 kapanisi"
+    },
+
+    {
+      "id": "OPP1-031",
+      "character": "inspector_mehmet",
+      "flavor": "Mehmet cok ciddi bir yuzle geliyor. Dosyasi her zamankinden daha kalin.",
+      "text": "Size soylememem gereken bir sey var. Uzun suredir takip ediyordum. Parti icinde ciddi bir yolsuzluk zinciri var. Isimler var, rakamlar var. Dosya hazir. Ne yapacagimiza siz karar veriyorsunuz.",
+      "choiceLeft":  { "label": "Dosyayi goster",          "halk": 0,  "ordu": 0,  "din": 0,  "para": 0  },
+      "choiceRight": { "label": "Bu dosyayi kimse gormemeli", "halk": -10,"ordu": 0,  "din": 2,  "para": 8  },
+      "prerequisite": "OPP1-030",
+      "unlocks": ["OPP1-032"],
+      "act": 3,
+      "yearOffset": 0,
+      "branchNote": "Perde 3 ana dallanma noktasi"
+    },
+
+    {
+      "id": "OPP1-032",
+      "character": "inspector_mehmet",
+      "flavor": "Mehmet dosyayi acmis bekliyor.",
+      "text": "Dosyada uc isim var. Ikisi bilinen, biri sizi sasirtacak. Sasirmaya hazir misiniz?",
+      "choiceLeft":  { "label": "Adlari soyle",              "halk": 5,  "ordu": 0,  "din": 0,  "para": -8  },
+      "choiceRight": { "label": "Isimler degil, kanitlar onemli", "halk": 8,  "ordu": 0,  "din": 0,  "para": -10 },
+      "prerequisite": "OPP1-031",
+      "requiresChoiceOnCard": { "cardId": "OPP1-031", "choice": "left" },
+      "unlocks": ["OPP1-033"],
+      "act": 3,
+      "yearOffset": 0
+    },
+
+    {
+      "id": "OPP1-033",
+      "character": "journalist_can",
+      "flavor": "Can'in bu sefer not defteri kapali. Sizi gormek icin gelmis.",
+      "text": "Duydum. Mehmet dosyasindan bahsediyorum. Bu bilginin sizdigi fark ettiniz mi? Bende var. Yayinlamadan once size sormak istedim: Yorum var mi?",
+      "choiceLeft":  { "label": "Yayinlama, zamansiz",      "halk": -4, "ordu": 3,  "din": 0,  "para": 0  },
+      "choiceRight": { "label": "Yayinlayin, kamou bilmeli", "halk": 15, "ordu": -8, "din": -3, "para": -12},
+      "prerequisite": "OPP1-032",
+      "unlocks": ["OPP1-034"],
+      "act": 3,
+      "yearOffset": 0,
+      "branchNote": "SAG secim ORDU tehlike bolgesine girebilir"
+    },
+
+    {
+      "id": "OPP1-034",
+      "character": "general_rifat",
+      "flavor": "Bu sefer uniformal degil, sivil. Daha tehlikeli.",
+      "text": "Hos bir kariyer yapiyorsunuz. Umarim devam eder. Su dosya meselesi... cevrenizdekilerin bazilari cok aceleci davraniy. Bu tur acelicilik... bazen kariyere zarar verir. Anliyorsunuzdur.",
+      "choiceLeft":  { "label": "Sizi anliyorum General",    "halk": -7, "ordu": 8,  "din": 0,  "para": 0  },
+      "choiceRight": { "label": "Tehdidle ilgilenmiyorum",   "halk": 8,  "ordu": -10,"din": 0,  "para": 0  },
+      "prerequisite": "OPP1-033",
+      "unlocks": ["OPP1-035"],
+      "act": 3,
+      "yearOffset": 0,
+      "branchNote": "ORDU 15'e dustuise felaket sonu tetiklenir"
+    },
+
+    {
+      "id": "OPP1-035",
+      "character": "student_zeynep",
+      "flavor": "Dal A'daysan guclu gelecek. Dal B'deysen zayif ama yine de var.",
+      "text": "Sokaklar yaniyor. Dosya haberi cikti ve herkes konusuyor. Simdi miting yapalim mi? Bu en dogru an.",
+      "choiceLeft":  { "label": "Bekleyelim, toz dumanin dagil",  "halk": -6, "ordu": 0,  "din": 0,  "para": 3  },
+      "choiceRight": { "label": "Evet, simdi tam zamani",          "halk": 13, "ordu": -7, "din": -4, "para": -5 },
+      "prerequisite": "OPP1-034",
+      "unlocks": ["OPP1-036"],
+      "act": 3,
+      "yearOffset": 0
+    },
+
+    {
+      "id": "OPP1-036",
+      "character": "secretary_leyla",
+      "flavor": "Medya haberleri ekranda donuyor.",
+      "text": "Dosyada ismi gecen iki kisiden biri istifa etti. Biri etmedi ve aciklama yapti: 'Bu bir kumpas.' Medya ikiye bolundu. Nasil devam ediyoruz?",
+      "choiceLeft":  { "label": "Ses cikarmayın, bekleyin",    "halk": -5, "ordu": 0,  "din": 0,  "para": 6  },
+      "choiceRight": { "label": "Biz dogrurun yanindayiz",      "halk": 9,  "ordu": -3, "din": 0,  "para": -7 },
+      "prerequisite": "OPP1-035",
+      "unlocks": ["OPP1-037"],
+      "act": 3,
+      "yearOffset": 0
+    },
+
+    {
+      "id": "OPP1-037",
+      "character": "spy_x",
+      "flavor": "Bay X yeniden. Onceki kagidi hatirliyorsunuz?",
+      "text": "'Dikkatli olun' demistim. Olmadınız. Simdi size bir sey daha soyliyecegim: Dosyada dorduncu bir isim var. Mehmet bilmiyor. Ben biliyorum.",
+      "choiceLeft":  { "label": "Kim bu isim?",                    "halk": -3, "ordu": 2,  "din": 0,  "para": 0  },
+      "choiceRight": { "label": "Neden bana soyluyorsunuz?",        "halk": 0,  "ordu": 0,  "din": 0,  "para": 0  },
+      "prerequisite": "OPP1-036",
+      "unlocks": ["OPP1-038"],
+      "act": 3,
+      "yearOffset": 0
+    },
+
+    {
+      "id": "OPP1-038",
+      "character": "inspector_mehmet",
+      "flavor": "Mehmet yorgun ve endiseli gorunuyor.",
+      "text": "Beni takip ediyorlar. Emin degilim kim, ama hissediyorum. Dosyayi yedege aldim. Guvende. Ama siz de dikkatli olun.",
+      "choiceLeft":  { "label": "Koruma talep edin",   "halk": 4,  "ordu": -3, "din": 0,  "para": 0  },
+      "choiceRight": { "label": "Biraz dur, bekle",    "halk": 0,  "ordu": 0,  "din": 0,  "para": 0  },
+      "prerequisite": "OPP1-037",
+      "unlocks": ["OPP1-039"],
+      "act": 3,
+      "yearOffset": 0
+    },
+
+    {
+      "id": "OPP1-039",
+      "character": "old_voter_ali",
+      "flavor": "Ali amca bu sefer ciddi.",
+      "text": "Oglum, duydum olanlari. Dogruysa yapiyorsunuz dogru olani. Ama bir sey soracagim: Bu sizi mahvedebilir. Buna deger mi?",
+      "choiceLeft":  { "label": "Her mucadelenin bedeli var",  "halk": 5,  "ordu": 0,  "din": 0,  "para": 0  },
+      "choiceRight": { "label": "Bilmiyorum, Ali Amca",        "halk": 8,  "ordu": 0,  "din": 0,  "para": 0  },
+      "prerequisite": "OPP1-038",
+      "unlocks": ["OPP1-040"],
+      "act": 3,
+      "yearOffset": 0
+    },
+
+    {
+      "id": "OPP1-040",
+      "character": "journalist_can",
+      "flavor": "Yayin sonrasi rakamlar geliyor.",
+      "text": "Yayin sonrasi rakamlar: HSP en yuksek kamuoyu destegine ulasti. Ama ayni zamanda en fazla tehdit alan parti oldu. Bu iki gercegi nasil tutuyorsunuz ayni anda?",
+      "choiceLeft":  { "label": "Halkin destegi her seyin onunde", "halk": 5,  "ordu": -4, "din": 0,  "para": 0  },
+      "choiceRight": { "label": "Ikisi de gercek, ikisiyle yasariz",  "halk": 3,  "ordu": 1,  "din": 0,  "para": 0  },
+      "prerequisite": "OPP1-039",
+      "unlocks": ["OPP1-051"],
+      "act": 3,
+      "yearOffset": 1,
+      "branchNote": "Perde 3 kapanisi, Perde 4 secimine gec"
+    }
+
+  ]
+}
