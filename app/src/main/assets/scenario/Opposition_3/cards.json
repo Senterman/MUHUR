@@ -1,0 +1,72 @@
+{
+  "scenario": "Opposition_1",
+  "party": "MNP",
+  "cards": [
+
+    {
+      "id": "MNP1-001",
+      "character": "secretary_leyla",
+      "flavor": "Genel Merkez koridoru, toz ve fotokopi kokusu.",
+      "text": "Hosgeldiniz. Uyelik formunuz tamam. Ama bir sey var: Genel Baskanimiz her yeni uyeyle bizzat gorusiyor. Sizi ne zaman odaya alirim?",
+      "choiceLeft":  { "label": "Acelesi yok",          "halk": 0,  "ordu": 1,  "din": 0,  "para": 0  },
+      "choiceRight": { "label": "En kisa surede",        "halk": 2,  "ordu": 0,  "din": 1,  "para": 0  },
+      "prerequisite": null,
+      "unlocks": ["MNP1-002"],
+      "act": 1,
+      "yearOffset": 0
+    },
+
+    {
+      "id": "MNP1-002",
+      "character": "inspector_mehmet",
+      "flavor": "Parti disiplin kurulu raportoru Mehmet Bey masanizda.",
+      "text": "Gecen hafta bir uye Genel Baskana karsi acik elestiride bulundu. Disiplin kurulu toplaniyor. Siz de katilmak ister misiniz? Gozlemci sifatiyla.",
+      "choiceLeft":  { "label": "Katilmayacagim",        "halk": -1, "ordu": 2,  "din": 0,  "para": 0  },
+      "choiceRight": { "label": "Gozlemleyebilirim",     "halk": 1,  "ordu": 1,  "din": 1,  "para": 0  },
+      "prerequisite": "MNP1-001",
+      "unlocks": ["MNP1-003"],
+      "act": 1,
+      "yearOffset": 0
+    },
+
+    {
+      "id": "MNP1-003",
+      "character": "old_voter_ali",
+      "flavor": "Cami cikisinda Ali Amca sizi taniyor.",
+      "text": "Sizi MNP'den gordum diyorlar. Memnun oldum. Ama sorayim: bu defa vaatler kagit ustunde mi kalacak, yoksa gercek olacak mi?",
+      "choiceLeft":  { "label": "Elimizden geleni",     "halk": 2,  "ordu": 0,  "din": 3,  "para": -1 },
+      "choiceRight": { "label": "Kesin sozu vermem",    "halk": -2, "ordu": 0,  "din": -1, "para": 2  },
+      "prerequisite": "MNP1-002",
+      "unlocks": ["MNP1-004"],
+      "act": 1,
+      "yearOffset": 0
+    },
+
+    {
+      "id": "MNP1-004",
+      "character": "journalist_can",
+      "flavor": "Bir gazeteci, parti konvoyunun onunde duruyor.",
+      "text": "Sizi gorucu surecinden geciriyorum. 'MNP neden bu kadar kapalı?' diye soruyorum. Ne cevap veriyorsunuz?",
+      "choiceLeft":  { "label": "Kapali degil, ciddi",  "halk": 3,  "ordu": 0,  "din": 2,  "para": 0  },
+      "choiceRight": { "label": "Yorum yapmiyorum",     "halk": -3, "ordu": 1,  "din": 0,  "para": 1  },
+      "prerequisite": "MNP1-003",
+      "unlocks": ["MNP1-005"],
+      "act": 1,
+      "yearOffset": 0
+    },
+
+    {
+      "id": "MNP1-005",
+      "character": "general_rifat",
+      "flavor": "Emekli General Rifat, ziyaret amacli geldigini soyledi.",
+      "text": "MNP'nin ordu ile iliskisi her zaman hassas olmustur. Ben emekliyim ama arkadaslarim hala gorevde. Bir kelam etmemi ister misiniz?",
+      "choiceLeft":  { "label": "Gerek yok",            "halk": 0,  "ordu": -3, "din": 0,  "para": 1  },
+      "choiceRight": { "label": "Memnuniyetle",         "halk": -1, "ordu": 5,  "din": 0,  "para": 0  },
+      "prerequisite": "MNP1-004",
+      "unlocks": [],
+      "act": 1,
+      "yearOffset": 0
+    }
+
+  ]
+}
