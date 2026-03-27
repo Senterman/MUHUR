@@ -21,7 +21,7 @@ public class GameState {
     // ── PARTI SABİTLERİ ───────────────────────────────────────────────────
     public static final int PARTY_HSP = 0;
     public static final int PARTY_MNP = 1;
-    public static final int PARTY_YCH = 2;
+    public static final int PARTY_LDP = 2;
 
     // ── BARLAR (0–100) ────────────────────────────────────────────────────
     public int halk    = 50;

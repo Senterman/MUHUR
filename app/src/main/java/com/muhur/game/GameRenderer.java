@@ -61,8 +61,9 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private static final int ST_SETTINGS = 3;
     private static final int ST_GAME     = 4;
     private static final int ST_FONTTEST = 5;
-    private static final int ST_ENDING   = 6;   // Felaket sonu ekranı
-    private static final int ST_ELECTION = 7;   // Seçim sonucu ekranı
+    private static final int ST_ENDING        = 6;   // Felaket sonu ekranı
+    private static final int ST_ELECTION      = 7;   // Seçim sonucu ekranı
+    private static final int ST_PARTY_SELECT  = 8;   // Parti seçim ekranı
 
     // ─── RENK PALETİ ───────────────────────────────────────────────────────
     private static final float[] C_BG      = {0.051f, 0.039f, 0.020f, 1.0f};
@@ -198,6 +199,15 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private int     mElectionResult  = -1;  // GameState.ELECTION_WIN/TIE/LOSS
     private int     mElectionScore   = 0;
 
+    // ─── TOUCH DURUMU (renderEnding vb. için) ─────────────────────────────
+    private int   mTouchAction = -1;
+    private float mTouchX     = 0f;
+    private float mTouchY     = 0f;
+
+    // ─── PARTİ SEÇİM EKRANI (ST_PARTY_SELECT) ────────────────────────────
+    private int mPartyHover = -1;
+    private int mPartyPress = -1;
+
     // ─── CONTEXT & MÜZİK ───────────────────────────────────────────────────
     private final Context         mCtx;
     private final AssetManager    mAssets;
@@ -217,9 +227,10 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         mGameState = new GameState();
         mEngine    = new ScenarioEngine(mAssets);
 
-        // Senaryo verilerini yükle
-        mEngine.loadScenario("scenario/opposition_1/cards.json");
-        mEngine.loadEndings("scenario/opposition_1/endings.json");
+        // Senaryo varsayılan olarak HSP ile başlar;
+        // gerçek yükleme startGameWithParty() içinde yapılır.
+        mEngine.loadScenario("scenario/HSP/cards.json");
+        mEngine.loadEndings("scenario/HSP/endings.json");
 
         // intro.md'yi yükle
         loadIntroFromAssets();
@@ -288,14 +299,15 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         mTouchAction = action;
         mTouchX = x; mTouchY = y;
         switch (mState) {
-            case ST_SPLASH:   touchSplash(action);             break;
-            case ST_CINEMA:   touchCinema(action, x, y, time); break;
-            case ST_MENU:     touchMenu(action, x, y);         break;
-            case ST_SETTINGS: touchSettings(action, x, y);     break;
-            case ST_FONTTEST: touchFontTest(action, x, y);     break;
-            case ST_GAME:     touchGame(action, x, y);         break;
-            case ST_ENDING:   touchEnding(action);             break;
-            case ST_ELECTION: touchElection(action, x, y);    break;
+            case ST_SPLASH:        touchSplash(action);              break;
+            case ST_CINEMA:        touchCinema(action, x, y, time);  break;
+            case ST_MENU:          touchMenu(action, x, y);          break;
+            case ST_SETTINGS:      touchSettings(action, x, y);      break;
+            case ST_FONTTEST:      touchFontTest(action, x, y);      break;
+            case ST_GAME:          touchGame(action, x, y);          break;
+            case ST_ENDING:        touchEnding(action);              break;
+            case ST_ELECTION:      touchElection(action, x, y);      break;
+            case ST_PARTY_SELECT:  touchPartySelect(action, x, y);   break;
         }
     }
 
@@ -351,14 +363,15 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         GLES20.glClearColor(C_BG[0], C_BG[1], C_BG[2], 1f);
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
         switch (mState) {
-            case ST_SPLASH:   renderSplash();    break;
-            case ST_MENU:     renderMenu();      break;
-            case ST_CINEMA:   renderCinema();    break;
-            case ST_SETTINGS: renderSettings();  break;
-            case ST_FONTTEST: renderFontTest();  break;
-            case ST_GAME:     renderGame();      break;
-            case ST_ENDING:   renderEnding();    break;
-            case ST_ELECTION: renderElection();  break;
+            case ST_SPLASH:        renderSplash();        break;
+            case ST_MENU:          renderMenu();           break;
+            case ST_CINEMA:        renderCinema();         break;
+            case ST_SETTINGS:      renderSettings();       break;
+            case ST_FONTTEST:      renderFontTest();       break;
+            case ST_GAME:          renderGame();           break;
+            case ST_ENDING:        renderEnding();         break;
+            case ST_ELECTION:      renderElection();       break;
+            case ST_PARTY_SELECT:  renderPartySelection(); break;
         }
     }
 
@@ -595,7 +608,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         mFtDone   = false;
         mState    = ST_FONTTEST;
     }
-
     // ══════════════════════════════════════════════════════════════════════
     //  AYARLAR  — Ses Slider + FPS Seçimi
     // ══════════════════════════════════════════════════════════════════════
@@ -840,11 +852,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         if (action != MotionEvent.ACTION_UP) return;
 
         if (hit(x, y, 0, 0, mPad * 4f, mPad * 4f)) {
-            mGameState.sifirla();
-            mEngine.startScenario(mGameState);
-            mCardSwipeX  = 0f;
-            mCardSwiping = false;
-            mState = ST_GAME;
+            startPartySelect();
             return;
         }
 
@@ -852,12 +860,199 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             mFtChar = ftTotalChars();
             mFtDone = true;
         } else {
-            // Oyuna geç — senaryoyu başlat
-            mGameState.sifirla();
-            mEngine.startScenario(mGameState);
-            mCardSwipeX  = 0f;
-            mCardSwiping = false;
-            mState = ST_GAME;
+            startPartySelect();
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    //  PARTİ SEÇİM EKRANI (ST_PARTY_SELECT)
+    //  Akış: Menü → Sinematik → Font Test → [BU EKRAN] → Oyun
+    // ══════════════════════════════════════════════════════════════════════
+
+    // Parti ID sabitleri (GameState.PARTY_* ile aynı sıra)
+    private static final String[] PARTY_IDS     = { "HSP", "MNP", "LDP" };
+    private static final String[] PARTY_NAMES   = {
+        "HALK SEVER PARTİSİ",
+        "MİLLİ NİZAM PARTİSİ",
+        "LİBERAL DEMOKRASİ PARTİSİ"
+    };
+    private static final String[] PARTY_SLOGANS = {
+        "HEPİMİZ BİRLİKTEYİZ.",
+        "DÜZEN VE İSTİKRAR.",
+        "ÖZGÜRLÜK, KALKINMA, REFAH."
+    };
+
+    private void startPartySelect() {
+        mPartyHover = -1;
+        mPartyPress = -1;
+        mState = ST_PARTY_SELECT;
+    }
+
+    /**
+     * Seçilen partiye göre senaryo dosyalarını yükler ve oyunu başlatır.
+     * Yol: assets/scenario/HSP|MNP|LDP/cards.json + endings.json
+     */
+    private void startGameWithParty(int party) {
+        mGameState.sifirla();
+        mGameState.partyChoice = party;
+
+        String folder;
+        switch (party) {
+            case GameState.PARTY_MNP: folder = "scenario/MNP"; break;
+            case GameState.PARTY_LDP: folder = "scenario/LDP"; break;
+            default:                  folder = "scenario/HSP"; break;
+        }
+
+        mEngine.loadScenario(folder + "/cards.json");
+        mEngine.loadEndings(folder + "/endings.json");
+        mEngine.startScenario(mGameState);
+        mCardSwipeX  = 0f;
+        mCardSwiping = false;
+        mState = ST_GAME;
+    }
+
+    private void renderPartySelection() {
+        // Arka plan
+        if (mTexMenuBg > 0) {
+            drawTex(mTexMenuBg, 0, 0, mW, mH, 0.55f);
+            float[] ov = {C_BG[0], C_BG[1], C_BG[2], 0.62f};
+            rect(0, 0, mW, mH, ov);
+        } else {
+            rect(0, 0, mW, mH, C_BG);
+        }
+
+        float cx = mW / 2f;
+
+        // ── Başlık ────────────────────────────────────────────────────────
+        float titlePS = fitTextPS("PARTİNİZİ SEÇİN", mUsableW * 0.82f, gPS * 1.2f);
+        drawStringC("PARTİNİZİ SEÇİN", mH * 0.07f, titlePS, C_GOLD);
+
+        // Alt başlık
+        float subPS = gPS * 0.58f;
+        float[] subC = {C_GREY[0], C_GREY[1], C_GREY[2], 0.70f};
+        drawStringC("1999 - TÜRKİYE GENEL SEÇİMLERİ", mH * 0.15f, subPS, subC);
+
+        // ── Parti Kartları ────────────────────────────────────────────────
+        float cardW  = mUsableW * 0.90f;
+        float cardH  = mH * 0.175f;
+        float cardX  = cx - cardW / 2f;
+        float gap    = gPS * 4f;
+        float startY = mH * 0.23f;
+
+        for (int i = 0; i < PARTY_IDS.length; i++) {
+            float  cardY   = startY + i * (cardH + gap);
+            boolean hover  = (mPartyHover == i);
+            boolean pressed= (mPartyPress == i);
+
+            // Kart zemin
+            float[] bgC = pressed ? C_PRES : (hover ? C_DARK : C_BG);
+            rect(cardX, cardY, cardW, cardH, bgC);
+
+            // Sol renkli şerit (her parti için ton farklı — altın paleti içinde)
+            float stripW = gPS * 2.2f;
+            float stripAlpha = hover ? 1.0f : 0.55f;
+            float[] stripC = {
+                C_GOLD[0] * (1f - i * 0.18f),
+                C_GOLD[1] * (1f - i * 0.08f),
+                C_GOLD[2] * (0.4f + i * 0.15f),
+                stripAlpha
+            };
+            rect(cardX, cardY, stripW, cardH, stripC);
+
+            // Çerçeve
+            float b = Math.max(1.5f, gPS * 0.35f);
+            float[] brdC = (hover || pressed) ? C_GOLD : C_GDIM;
+            rect(cardX,              cardY,              cardW, b,     brdC);
+            rect(cardX,              cardY + cardH - b,  cardW, b,     brdC);
+            rect(cardX,              cardY,              b, cardH,     brdC);
+            rect(cardX + cardW - b,  cardY,              b, cardH,     brdC);
+
+            // Parti kısa adı (HSP / MNP / LDP)
+            float idPS = gPS * 0.80f;
+            float[] idC = hover ? C_GOLD : C_GDIM;
+            float idX = cardX + stripW + gPS * 2.5f;
+            drawString(PARTY_IDS[i], idX, cardY + gPS * 1.5f, idPS, idC);
+
+            // Ayırıcı çizgi
+            float divX = idX + charWidth(PARTY_IDS[i], idPS) + gPS * 2f;
+            float[] divC = {C_GDIM[0], C_GDIM[1], C_GDIM[2], 0.35f};
+            rect(divX, cardY + cardH * 0.2f, Math.max(1f, gPS * 0.25f), cardH * 0.6f, divC);
+
+            // Tam parti adı
+            float namePS = fitTextPS(PARTY_NAMES[i], cardW * 0.60f, gPS * 0.65f);
+            float[] nameC = hover ? C_GOLD : C_GOLD;
+            float nameX = divX + gPS * 2.5f;
+            drawString(PARTY_NAMES[i], nameX, cardY + gPS * 1.5f, namePS, nameC);
+
+            // Slogan
+            float slogPS = gPS * 0.52f;
+            float[] slogC = {C_GDIM[0], C_GDIM[1], C_GDIM[2], hover ? 0.90f : 0.65f};
+            drawString(PARTY_SLOGANS[i], nameX, cardY + gPS * 1.5f + namePS * 11f + gPS, slogPS, slogC);
+
+            // "SEÇ >" işareti — sağ tarafa hizalı, yalnızca hover'da
+            if (hover) {
+                float arrPS = gPS * 0.60f;
+                String arrStr = "SEÇ >";
+                float arrW = charWidth(arrStr, arrPS);
+                drawString(arrStr, cardX + cardW - b - arrW - gPS * 2f,
+                        cardY + cardH / 2f - arrPS * 4.5f, arrPS, C_GOLD);
+            }
+        }
+
+        // ── Alt bilgi ─────────────────────────────────────────────────────
+        float infoPS = gPS * 0.54f;
+        float[] infoC = {C_GREY[0], C_GREY[1], C_GREY[2], 0.50f};
+        drawStringC("BİR PARTİYE DOKUN VE SEÇ", mH * 0.88f, infoPS, infoC);
+
+        // Geri butonu
+        float backW = mUsableW * 0.40f;
+        float backH = Math.max(gPS * 8f, mH * 0.054f);
+        float backX = cx - backW / 2f;
+        float backY = mH * 0.92f;
+        drawButton("GERİ", backX, backY, backW, backH, false, false, false);
+
+        scanLines();
+    }
+
+    private void touchPartySelect(int action, float x, float y) {
+        float cx     = mW / 2f;
+        float cardW  = mUsableW * 0.90f;
+        float cardH  = mH * 0.175f;
+        float cardX  = cx - cardW / 2f;
+        float gap    = gPS * 4f;
+        float startY = mH * 0.23f;
+        float backW  = mUsableW * 0.40f;
+        float backH  = Math.max(gPS * 8f, mH * 0.054f);
+        float backX  = cx - backW / 2f;
+        float backY  = mH * 0.92f;
+
+        if (action == MotionEvent.ACTION_DOWN) {
+            mPartyPress = -1;
+            for (int i = 0; i < PARTY_IDS.length; i++) {
+                float cardY = startY + i * (cardH + gap);
+                if (hit(x, y, cardX, cardY, cardW, cardH)) {
+                    mPartyPress = i; mPartyHover = i; return;
+                }
+            }
+        } else if (action == MotionEvent.ACTION_MOVE) {
+            mPartyHover = -1;
+            for (int i = 0; i < PARTY_IDS.length; i++) {
+                float cardY = startY + i * (cardH + gap);
+                if (hit(x, y, cardX, cardY, cardW, cardH)) { mPartyHover = i; break; }
+            }
+        } else if (action == MotionEvent.ACTION_UP) {
+            int p = mPartyPress; mPartyPress = -1; mPartyHover = -1;
+            // Geri butonu
+            if (hit(x, y, backX, backY, backW, backH)) {
+                mState = ST_MENU; return;
+            }
+            // Parti seçimi
+            if (p >= 0) {
+                float cardY = startY + p * (cardH + gap);
+                if (hit(x, y, cardX, cardY, cardW, cardH)) {
+                    startGameWithParty(p); // 0=HSP, 1=MNP, 2=LDP
+                }
+            }
         }
     }
 
@@ -1249,10 +1444,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
             if (mTouchAction == MotionEvent.ACTION_UP) {
                 if (hit(mTouchX, mTouchY, bx1, by, bw1, bh)) {
-                    mGameState.sifirla();
-                    mEngine.startScenario(mGameState);
-                    mCardSwipeX = 0f; mCardSwiping = false;
-                    mState = ST_GAME; mTouchAction = -1;
+                    startGameWithParty(mGameState.partyChoice);
+                    mTouchAction = -1;
                 } else if (hit(mTouchX, mTouchY, bx2, by, bw2, bh)) {
                     mGameState.sifirla();
                     mState = ST_MENU; mTouchAction = -1;
@@ -1338,10 +1531,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         float bx2 = cx + gap / 2f;
 
         if (hit(x, y, bx1, by, bw, bh)) {
-            mGameState.sifirla();
-            mEngine.startScenario(mGameState);
-            mCardSwipeX = 0f; mCardSwiping = false;
-            mState = ST_GAME;
+            startGameWithParty(mGameState.partyChoice);
         } else if (hit(x, y, bx2, by, bw, bh)) {
             mGameState.sifirla();
             mState = ST_MENU;
