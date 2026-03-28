@@ -21,39 +21,20 @@ import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
 /**
- * MÜHÜR — GameRenderer (Revizyon 9)
+ * MÜHÜR — GameRenderer (Revizyon 10 — Temiz Akış)
  *
- * Akış:
- *   Splash → Menü → Sinematik → Parti Seçim → [Oyun/Placeholder] →
- *   Seçim Gecesi / Felaket Sonu → Menü
- *
- * Parti durumu:
- *   HSP  → Perde 1 bağlı (OPP1-001..015), Perde 2-5 "Yakında"
- *   MNP  → Perde 1 bağlı (MNP-001..015), Perde 2-5 "Yakında"
- *   LDP  → Tüm içerik "Yakında"
- *   İktidar → "Yakında"
- *
- * Karakter görselleri (assets/characters/):
- *   inspector_mehmet.png
- *   secretary_leyla.png
- *   general_rifat.png
- *   imam_nureddin.png
- *   journalist_can.png
- *   spy_x.png
- *   old_voter_ali.png
- *   student_zeynep.png
- *   (Yüklenmezse placeholder kutu gösterilir)
- *
- * Arka planlar (assets/):
- *   opposition_bg.png   → muhalefet kart ekranı arka planı
- *   government_bg.png   → iktidar evresi arka planı
- *   party_select_bg.png → parti seçim ekranı arka planı
- *   menu_bg.png         → menü ve genel arka plan
- *
- * Logolar (assets/logos/):
- *   logo_hsp.png
- *   logo_mnp.png
- *   logo_ldp.png
+ * AKIŞ:
+ *   ST_SPLASH       → BoneCastOfficial yükleme ekranı
+ *   ST_MENU         → Ana menü (Yeni Oyun / Devam Et / Ayarlar / Çıkış)
+ *   ST_CINEMA       → Sinematik giriş (daktilo efekti)
+ *   ST_FONTTEST     → Font test ekranı (assets/game_font.ttf ile)
+ *   ST_PARTY_SELECT → Parti seçim ekranı (logolar + bilgi)
+ *   ST_GAME         → Muhalefet evresi kart oyunu (~20 dk, 15 karar)
+ *   ST_ELECTION     → Seçim gecesi sonuç ekranı
+ *   ST_RULING       → İktidar evresi kart oyunu (~20 dk, 15 karar)
+ *   ST_CREDITS      → Bitiş / Yapanlar / Krediler ekranı
+ *   ST_SETTINGS     → Ayarlar
+ *   ST_ENDING       → Felaket sonu (bar 0/100'e düşünce)
  */
 public class GameRenderer implements GLSurfaceView.Renderer {
 
@@ -70,13 +51,14 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private static final int ST_SPLASH       = 0;
     private static final int ST_MENU         = 1;
     private static final int ST_CINEMA       = 2;
-    private static final int ST_SETTINGS     = 3;
-    private static final int ST_GAME         = 4;
-    private static final int ST_FONTTEST     = 5;
-    private static final int ST_ENDING       = 6;
-    private static final int ST_ELECTION     = 7;
-    private static final int ST_PARTY_SELECT = 8;
-    private static final int ST_COMING_SOON  = 9;
+    private static final int ST_FONTTEST     = 3;
+    private static final int ST_PARTY_SELECT = 4;
+    private static final int ST_GAME         = 5;   // Muhalefet evresi
+    private static final int ST_ELECTION     = 6;   // Seçim gecesi
+    private static final int ST_RULING       = 7;   // İktidar evresi
+    private static final int ST_CREDITS      = 8;   // Bitiş / Krediler
+    private static final int ST_SETTINGS     = 9;
+    private static final int ST_ENDING       = 10;  // Felaket sonu
 
     // ── Renk paleti ──────────────────────────────────────────────────────
 
@@ -90,11 +72,12 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private static final float[] C_WARN   = {0.820f, 0.720f, 0.100f, 1.0f};
     private static final float[] C_DANGER = {0.820f, 0.200f, 0.150f, 1.0f};
     private static final float[] C_RED    = {0.700f, 0.100f, 0.100f, 1.0f};
+    private static final float[] C_GREEN  = {0.200f, 0.650f, 0.200f, 1.0f};
 
     // ── Parti verileri ────────────────────────────────────────────────────
 
-    private static final String[] PARTY_IDS     = { "HSP", "MNP", "LDP" };
-    private static final String[] PARTY_NAMES   = {
+    private static final String[] PARTY_IDS   = { "HSP", "MNP", "LDP" };
+    private static final String[] PARTY_NAMES = {
         "HALKCI SECIM PARTISI",
         "MILLI NIZAM PARTISI",
         "LIBERAL DEMOKRAT PARTI"
@@ -104,20 +87,25 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         "DUZEN VE ISTIKRAR.",
         "OZGURLUK, KALKINMA, REFAH."
     };
-    /** Hangi parti Perde 1'e sahip (true = oynanabilir) */
-    private static final boolean[] PARTY_ACTIVE = { true, true, false };
+    private static final String[] PARTY_DESC = {
+        "Sol-merkez, laik, sosyal demokrat parti.\nHalk katilimi ve sosyal adalet.",
+        "Muhafazakar milli goruslü parti.\nDin, aile ve istikrar degerleri.",
+        "Liberal, serbest piyasa yanlis parti.\nBireysel ozgürlük ve kalkinma."
+    };
+    // Tüm partiler oynanabilir
+    private static final boolean[] PARTY_ACTIVE = { true, true, true };
 
-    // ── Karakter görseli isimleri ─────────────────────────────────────────
+    // ── Karakter isimleri ─────────────────────────────────────────────────
 
     private static final String[] CHAR_NAMES = {
-        "inspector_mehmet",  // 0
-        "secretary_leyla",   // 1
-        "general_rifat",     // 2
-        "imam_nureddin",     // 3
-        "journalist_can",    // 4
-        "spy_x",             // 5
-        "old_voter_ali",     // 6
-        "student_zeynep"     // 7
+        "inspector_mehmet",
+        "secretary_leyla",
+        "general_rifat",
+        "imam_nureddin",
+        "journalist_can",
+        "spy_x",
+        "old_voter_ali",
+        "student_zeynep"
     };
 
     // ── Shader kaynak kodları ─────────────────────────────────────────────
@@ -166,16 +154,18 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private float mW, mH, mPad, mUsableW;
     private float gPS;
 
-    // ── Oyun durumu ───────────────────────────────────────────────────────
+    // ── Genel durum ───────────────────────────────────────────────────────
 
     private int   mState = ST_SPLASH;
     private int   mFrame = 0;
 
-    // Splash
+    // ── Splash ────────────────────────────────────────────────────────────
+
     private float mSplashAlpha = 0f;
     private static final int SPLASH_FRAMES = 120;
 
-    // Sinematik
+    // ── Sinematik ─────────────────────────────────────────────────────────
+
     private String[] mCinemaText   = new String[0];
     private String[] mCinemaAssets = new String[0];
     private int      mCinemaScene  = 0;
@@ -187,18 +177,21 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private static final long TYPEWRITER_MS = 55;
     private static final long SKIP_HOLD_MS  = 3000;
 
-    // Menü
+    // ── Menü ─────────────────────────────────────────────────────────────
+
     private int mMenuHover = -1, mMenuPress = -1;
     private static final String[] MENU_LABELS = {"YENI OYUN","DEVAM ET","AYARLAR","CIKIS"};
 
-    // Ayarlar
+    // ── Ayarlar ───────────────────────────────────────────────────────────
+
     private int     mSetHover = -1, mSetPress = -1;
     private float   mVolume   = 0.75f;
     private boolean mSliderDragging = false;
     private int     mFps = 60;
     private boolean mMusicStarted = false;
 
-    // Font Test
+    // ── Font Test ─────────────────────────────────────────────────────────
+
     private static final String[] FONT_TEST_LINES = {
         "ABCC\u00C7DEFGG\u011EHHII\u0130",
         "JKLMNOO\u00D6PRSS\u015ETUU\u00DCVYZ",
@@ -212,7 +205,12 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private boolean mFtDone = false;
     private static final long FT_CHAR_MS = 40;
 
-    // Kart swipe
+    // ── Parti seçim ───────────────────────────────────────────────────────
+
+    private int mPartyHover = -1, mPartyPress = -1;
+
+    // ── Kart / Oyun ───────────────────────────────────────────────────────
+
     private float   mCardSwipeX      = 0f;
     private boolean mCardSwiping     = false;
     private float   mCardSwipeStartX = 0f;
@@ -220,11 +218,20 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private int[]   mCardEffectRight = {0,0,0,0};
     private static final String[] BAR_LABELS = {"HALK","DIN","PARA","ORDU"};
 
-    // Senaryo & GameState
+    // Muhalefet evresi için zaman takibi
+    private long    mPhaseStartTime  = 0;
+    private static final long OPPOSITION_DURATION_MS = 20L * 60L * 1000L; // 20 dakika
+    private static final long RULING_DURATION_MS     = 20L * 60L * 1000L; // 20 dakika
+    private static final int  MIN_DECISIONS_OPPOSITION = 12; // En az 12 karar
+    private static final int  MIN_DECISIONS_RULING     = 12;
+
+    // ── Senaryo & GameState ───────────────────────────────────────────────
+
     private final ScenarioEngine mEngine;
     private final GameState      mGameState;
 
-    // Felaket sonu
+    // ── Felaket sonu ──────────────────────────────────────────────────────
+
     private String  mEndingTitle = "";
     private String  mEndingBody  = "";
     private int     mEndingChar  = 0;
@@ -232,22 +239,58 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private boolean mEndingDone  = false;
     private static final long ENDING_CHAR_MS = 35;
 
-    // Seçim
+    // ── Seçim gecesi ─────────────────────────────────────────────────────
+
     private int mElectionResult = -1;
     private int mElectionScore  = 0;
 
-    // Touch (class seviyesinde — thread safe)
+    // ── Krediler ─────────────────────────────────────────────────────────
+
+    private int  mCreditsChar = 0;
+    private long mCreditsLast = 0;
+    private boolean mCreditsDone = false;
+    private static final long CREDITS_CHAR_MS = 30;
+    private static final String[] CREDITS_LINES = {
+        "MUHUR TAMAMLANDI",
+        "",
+        "MILLI NIZAM PARTISI",
+        "ILE IKTIDARA YUKSELDINIZ.",
+        "",
+        "1999-2002 DONEMI",
+        "TAMAMLANDI.",
+        "",
+        "--- YAPIMCILAR ---",
+        "",
+        "GELISTIRICI",
+        "BONECASTOFFICIAL",
+        "",
+        "SENARYO",
+        "BONECASTOFFICIAL",
+        "",
+        "MUZIK & SES",
+        "BONECASTOFFICIAL",
+        "",
+        "SANAT",
+        "BONECASTOFFICIAL",
+        "",
+        "--- TESEKKURLER ---",
+        "",
+        "OYUNU OYNADIGINIZ ICIN",
+        "TESEKKUR EDERIZ.",
+        "",
+        "KADERIN, MUHURUN UCUNDA.",
+        "",
+        "v0.2.0 — 2025"
+    };
+
+    // ── Touch ─────────────────────────────────────────────────────────────
+
     private int   mTouchAction = -1;
     private float mTouchX      = 0f;
     private float mTouchY      = 0f;
 
-    // Parti seçim ekranı
-    private int mPartyHover = -1, mPartyPress = -1;
+    // ── Context & Müzik ───────────────────────────────────────────────────
 
-    // "Yakında" ekranı
-    private String mComingSoonParty = "";
-
-    // Context & Müzik
     private final Context         mCtx;
     private final AssetManager    mAssets;
     private final MusicController mMusic;
@@ -264,9 +307,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
         mGameState = new GameState();
         mEngine    = new ScenarioEngine(mAssets);
-
-        mEngine.loadScenario("scenario/HSP/cards.json");
-        mEngine.loadEndings("scenario/HSP/endings.json");
 
         loadIntroFromAssets();
 
@@ -296,39 +336,31 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         GLES20.glEnable(GLES20.GL_BLEND);
         GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
 
-        // Ana textureler
         mTexLogo    = loadTexture("logo.png");
         mTexMenuBg  = loadTexture("menu_bg.png");
         mTexPartyBg = loadTexture("party_select_bg.png");
         mTexOppBg   = loadTexture("opposition_bg.png");
         mTexGovBg   = loadTexture("government_bg.png");
 
-        // Sinematik arka planlar
         mTexCinema = new int[mCinemaAssets.length];
         for (int i = 0; i < mCinemaAssets.length; i++)
             mTexCinema[i] = loadTexture(mCinemaAssets[i]);
 
-        // Karakter görselleri (yoksa -1 kalır)
         for (int i = 0; i < CHAR_NAMES.length; i++)
             mTexChar[i] = loadTexture("characters/" + CHAR_NAMES[i] + ".png");
 
-        // Parti logoları
-        mTexPartyLogo[0] = loadTexture("logos/logo_hsp.png");
-        mTexPartyLogo[1] = loadTexture("logos/logo_mnp.png");
-        mTexPartyLogo[2] = loadTexture("logos/logo_ldp.png");
-
-        mCinemaLast = System.currentTimeMillis();
+        String[] logoFiles = { "logos/logo_hsp.png", "logos/logo_mnp.png", "logos/logo_ldp.png" };
+        for (int i = 0; i < 3; i++)
+            mTexPartyLogo[i] = loadTexture(logoFiles[i]);
     }
 
     @Override
     public void onSurfaceChanged(GL10 gl, int w, int h) {
-        mW = w;
-        mH = h;
         GLES20.glViewport(0, 0, w, h);
-        mPad     = mW * 0.05f;
+        mW = w; mH = h;
+        mPad     = Math.max(16f, mW * 0.045f);
         mUsableW = mW - mPad * 2f;
-        gPS = mW / 144f;
-        gPS = Math.max(1.8f, Math.min(gPS, 5.5f));
+        gPS      = Math.max(2f, mW / 120f);
     }
 
     @Override
@@ -339,88 +371,97 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    //  TOUCH
-    // ══════════════════════════════════════════════════════════════════════
-
-    public void onTouch(int action, float x, float y, long time) {
-        mTouchAction = action;
-        mTouchX      = x;
-        mTouchY      = y;
-        switch (mState) {
-            case ST_SPLASH:       touchSplash(action);          break;
-            case ST_CINEMA:       touchCinema(action,x,y,time); break;
-            case ST_MENU:         touchMenu(action,x,y);        break;
-            case ST_SETTINGS:     touchSettings(action,x,y);    break;
-            case ST_FONTTEST:     touchFontTest(action,x,y);    break;
-            case ST_GAME:         touchGame(action,x,y);        break;
-            case ST_ENDING:       touchEnding(action);          break;
-            case ST_ELECTION:     touchElection(action,x,y);    break;
-            case ST_PARTY_SELECT: touchPartySelect(action,x,y); break;
-            case ST_COMING_SOON:  touchComingSoon(action);      break;
-        }
-    }
-
-    // ══════════════════════════════════════════════════════════════════════
     //  UPDATE
     // ══════════════════════════════════════════════════════════════════════
 
     private void update() {
         switch (mState) {
-            case ST_SPLASH:   updateSplash();   break;
-            case ST_CINEMA:   updateCinema();   break;
-            case ST_FONTTEST: updateFontTest(); break;
-            case ST_ENDING:   updateEnding();   break;
+            case ST_SPLASH:
+                mSplashAlpha = Math.min(1f, mFrame / 40f);
+                if (mFrame >= SPLASH_FRAMES) {
+                    mFrame = 0; mState = ST_MENU;
+                    if (mMusic != null && !mMusicStarted) {
+                        mMusic.onMusicStart(); mMusicStarted = true;
+                    }
+                }
+                break;
+            case ST_CINEMA:
+                updateCinema();
+                break;
+            case ST_FONTTEST:
+                updateFontTest();
+                break;
+            case ST_GAME:
+                checkPhaseTime(false);
+                break;
+            case ST_RULING:
+                checkPhaseTime(true);
+                break;
+            case ST_ENDING:
+                updateEnding();
+                break;
+            case ST_CREDITS:
+                updateCredits();
+                break;
         }
     }
 
-    private void updateSplash() {
-        if      (mFrame < 30)               mSplashAlpha = mFrame / 30f;
-        else if (mFrame > SPLASH_FRAMES-30) mSplashAlpha = (SPLASH_FRAMES - mFrame) / 30f;
-        else                                mSplashAlpha = 1f;
-        if (mFrame >= SPLASH_FRAMES) {
-            mFrame = 0;
-            mState = ST_MENU;
-            mMenuHover = mMenuPress = -1;
-            triggerMusicStart();
-        }
-    }
-
-    private void updateCinema() {
-        if (mCinemaDone || mCinemaText.length == 0) return;
-        long now = System.currentTimeMillis();
-        if (now - mCinemaLast >= TYPEWRITER_MS) {
-            mCinemaLast = now;
-            String text = mCinemaText[mCinemaScene];
-            if (mCinemaChar < text.length()) mCinemaChar++;
-            else mCinemaDone = true;
-        }
-    }
-
-    private void triggerMusicStart() {
-        if (!mMusicStarted && mMusic != null) {
-            mMusicStarted = true;
-            mMusic.onMusicStart();
+    // Evre süre / karar kontrolü
+    private void checkPhaseTime(boolean isRuling) {
+        long dur = isRuling ? RULING_DURATION_MS : OPPOSITION_DURATION_MS;
+        int  minD = isRuling ? MIN_DECISIONS_RULING : MIN_DECISIONS_OPPOSITION;
+        long elapsed = System.currentTimeMillis() - mPhaseStartTime;
+        if (elapsed >= dur && mGameState.decisionCount >= minD) {
+            if (!isRuling) {
+                // Muhalefet bitti → seçim gecesi
+                triggerElectionScreen();
+            } else {
+                // İktidar bitti → krediler
+                startCredits();
+            }
         }
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    //  RENDER ANA METODU
+    //  TOUCH — genel yönlendirici
+    // ══════════════════════════════════════════════════════════════════════
+
+    public void onTouch(int action, float x, float y, long time) {
+        mTouchAction = action; mTouchX = x; mTouchY = y;
+        switch (mState) {
+            case ST_SPLASH:       touchSplash(action); break;
+            case ST_MENU:         touchMenu(action, x, y); break;
+            case ST_CINEMA:       touchCinema(action, x, y, time); break;
+            case ST_FONTTEST:     touchFontTest(action, x, y); break;
+            case ST_PARTY_SELECT: touchPartySelect(action, x, y); break;
+            case ST_GAME:         touchGame(action, x, y); break;
+            case ST_ELECTION:     touchElection(action, x, y); break;
+            case ST_RULING:       touchGame(action, x, y); break;
+            case ST_ENDING:       touchEnding(action); break;
+            case ST_CREDITS:      touchCredits(action, x, y); break;
+            case ST_SETTINGS:     touchSettings(action, x, y); break;
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    //  RENDER — ana dispatch
     // ══════════════════════════════════════════════════════════════════════
 
     private void render() {
         GLES20.glClearColor(C_BG[0], C_BG[1], C_BG[2], 1f);
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
         switch (mState) {
-            case ST_SPLASH:       renderSplash();      break;
-            case ST_MENU:         renderMenu();         break;
-            case ST_CINEMA:       renderCinema();       break;
-            case ST_SETTINGS:     renderSettings();     break;
-            case ST_FONTTEST:     renderFontTest();     break;
-            case ST_GAME:         renderGame();         break;
-            case ST_ENDING:       renderEnding();       break;
-            case ST_ELECTION:     renderElection();     break;
-            case ST_PARTY_SELECT: renderPartySelect();  break;
-            case ST_COMING_SOON:  renderComingSoon();   break;
+            case ST_SPLASH:       renderSplash();       break;
+            case ST_MENU:         renderMenu();          break;
+            case ST_CINEMA:       renderCinema();        break;
+            case ST_FONTTEST:     renderFontTest();      break;
+            case ST_PARTY_SELECT: renderPartySelect();   break;
+            case ST_GAME:         renderGame(false);     break;
+            case ST_ELECTION:     renderElection();      break;
+            case ST_RULING:       renderGame(true);      break;
+            case ST_ENDING:       renderEnding();        break;
+            case ST_CREDITS:      renderCredits();       break;
+            case ST_SETTINGS:     renderSettings();      break;
         }
     }
 
@@ -460,12 +501,12 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             float[] ov = {C_BG[0], C_BG[1], C_BG[2], 0.50f};
             rect(0, 0, mW, mH, ov);
         }
-        float cx = mW / 2f;
         float titlePS = fitTextPS("MUHUR", mUsableW*0.80f, gPS*2.0f);
         drawStringC("MUHUR", mH*0.16f, titlePS, C_GOLD);
         drawStringCWrapped("KADERIN, MUHURUN UCUNDA.", mH*0.29f, gPS*0.68f, C_GDIM);
         float devPS = fitTextPS("BONECASTOFFICIAL", mUsableW*0.68f, gPS*0.58f);
         drawStringC("BONECASTOFFICIAL", mH*0.36f, devPS, C_GREY);
+        float cx = mW / 2f;
         float bw = mUsableW*0.72f, bh = Math.max(gPS*8.5f, mH*0.065f);
         float bx = cx - bw/2f, gap = bh + gPS*2.5f, sy = mH*0.46f;
         for (int i = 0; i < MENU_LABELS.length; i++)
@@ -501,16 +542,29 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         }
     }
 
-    private void startCinema() {
-        mCinemaScene = 0; mCinemaChar = 0; mCinemaDone = false;
-        mCinemaLast = System.currentTimeMillis(); mSkipHeld = false;
-        if (mCinemaText.length == 0) { startPartySelect(); return; }
-        mState = ST_CINEMA;
-    }
-
     // ══════════════════════════════════════════════════════════════════════
     //  SİNEMATİK
     // ══════════════════════════════════════════════════════════════════════
+
+    private void startCinema() {
+        mCinemaScene = 0; mCinemaChar = 0; mCinemaDone = false;
+        mCinemaLast = System.currentTimeMillis(); mSkipHeld = false;
+        if (mCinemaText.length == 0) { startFontTest(); return; }
+        mState = ST_CINEMA;
+    }
+
+    private void updateCinema() {
+        if (mCinemaDone) return;
+        long now = System.currentTimeMillis();
+        if (now - mCinemaLast >= TYPEWRITER_MS) {
+            mCinemaLast = now;
+            if (mCinemaScene < mCinemaText.length) {
+                String full = mCinemaText[mCinemaScene];
+                if (mCinemaChar < full.length()) mCinemaChar++;
+                else mCinemaDone = true;
+            }
+        }
+    }
 
     private void renderCinema() {
         int bg = (mCinemaScene < mTexCinema.length) ? mTexCinema[mCinemaScene] : -1;
@@ -526,7 +580,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         String scn = (mCinemaScene+1) + "/" + mCinemaText.length;
         drawString(scn, mW-mPad-charWidth(scn,snPS), mPad*1.5f, snPS, ga);
 
-        String full = mCinemaText[mCinemaScene];
+        String full = mCinemaScene < mCinemaText.length ? mCinemaText[mCinemaScene] : "";
         String vis  = full.substring(0, Math.min(mCinemaChar, full.length()));
         float textPS = gPS*0.90f, maxW = mUsableW*0.86f;
         List<String> lines = wrapText(vis, maxW, textPS);
@@ -550,7 +604,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
             long held = System.currentTimeMillis() - mSkipStart;
             float prog = Math.min(1f, held / (float) SKIP_HOLD_MS);
             rect(sx, sy+sh+gPS*0.5f, sw*prog, gPS*1.2f, C_GOLD);
-            if (held >= SKIP_HOLD_MS) startPartySelect();
+            if (held >= SKIP_HOLD_MS) startFontTest();
         }
         scanLines();
     }
@@ -565,7 +619,8 @@ public class GameRenderer implements GLSurfaceView.Renderer {
                 mSkipHeld = true; mSkipStart = System.currentTimeMillis(); return;
             }
             if (!mCinemaDone) {
-                mCinemaChar = mCinemaText[mCinemaScene].length(); mCinemaDone = true; return;
+                mCinemaChar = mCinemaScene < mCinemaText.length ? mCinemaText[mCinemaScene].length() : 0;
+                mCinemaDone = true; return;
             }
             if (hit(x,y, bx,by,bw,bh)) nextCinema();
         } else if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
@@ -575,8 +630,816 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
     private void nextCinema() {
         mCinemaScene++;
-        if (mCinemaScene >= mCinemaText.length) startPartySelect();
+        if (mCinemaScene >= mCinemaText.length) startFontTest();
         else { mCinemaChar=0; mCinemaDone=false; mCinemaLast=System.currentTimeMillis(); }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    //  FONT TEST
+    // ══════════════════════════════════════════════════════════════════════
+
+    private void startFontTest() {
+        mFtChar=0; mFtLast=System.currentTimeMillis(); mFtDone=false;
+        mState = ST_FONTTEST;
+    }
+
+    private int ftTotal() {
+        int n = 0;
+        for (String s : FONT_TEST_LINES) n += s.length();
+        return n;
+    }
+
+    private void updateFontTest() {
+        if (mFtDone) return;
+        long now = System.currentTimeMillis();
+        if (now - mFtLast >= FT_CHAR_MS) {
+            mFtLast = now;
+            if (mFtChar < ftTotal()) mFtChar++;
+            else mFtDone = true;
+        }
+    }
+
+    private void renderFontTest() {
+        rect(0, 0, mW, mH, C_BG);
+        // Başlık
+        float titlePS = fitTextPS("FONT TESTI", mUsableW*0.70f, gPS*1.2f);
+        drawStringC("FONT TESTI", mH*0.04f, titlePS, C_GDIM);
+        // Alt başlık - font dosyası adı
+        float subPS = gPS*0.52f;
+        float[] subC = {C_GREY[0], C_GREY[1], C_GREY[2], 0.65f};
+        drawStringC("game_font.ttf", mH*0.11f, subPS, subC);
+        // Ayırıcı
+        float[] lineC = {C_GDIM[0], C_GDIM[1], C_GDIM[2], 0.35f};
+        rect(mPad*2f, mH*0.15f, mUsableW-mPad*2f, Math.max(1f, gPS*0.25f), lineC);
+
+        float sy = mH*0.18f, maxLH = (mH*0.62f) / FONT_TEST_LINES.length;
+        int left = mFtChar;
+        for (int li = 0; li < FONT_TEST_LINES.length; li++) {
+            String line = FONT_TEST_LINES[li];
+            float ry = sy + li*maxLH;
+            float ps = fitTextPS(line, mUsableW*0.92f, gPS*1.05f);
+            int show = Math.min(left, line.length()); left -= show;
+            if (show <= 0) break;
+            String vis = line.substring(0, show);
+            float[] bc = {C_GDIM[0], C_GDIM[1], C_GDIM[2], 0.20f};
+            rect(mPad, ry+ps*8f, mUsableW, Math.max(1f, gPS*0.3f), bc);
+            drawString(vis, mPad, ry, ps, C_GOLD);
+            if (show < line.length() && (mFrame/12)%2 == 0)
+                rect(mPad + charWidth(vis,ps), ry, ps*0.8f, ps*9f, C_GOLD);
+        }
+
+        rect(mPad*2f, mH*0.82f, mUsableW-mPad*2f, Math.max(1f, gPS*0.25f), lineC);
+
+        if (!mFtDone) {
+            float[] ic = {C_GREY[0], C_GREY[1], C_GREY[2], 0.70f};
+            drawStringC("YAZILIYOR...", mH*0.86f, gPS*0.58f, ic);
+        } else {
+            float bw = mUsableW*0.60f, bh = Math.max(gPS*9f, mH*0.058f);
+            drawButton("DEVAM ET", mW/2f-bw/2f, mH*0.88f, bw, bh, false, false, false);
+        }
+        scanLines();
+    }
+
+    private void touchFontTest(int action, float x, float y) {
+        if (action != MotionEvent.ACTION_UP) return;
+        if (!mFtDone) { mFtChar=ftTotal(); mFtDone=true; }
+        else {
+            // Font test bitti → parti seçim
+            mPartyHover=-1; mPartyPress=-1; mState=ST_PARTY_SELECT;
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    //  PARTİ SEÇİM EKRANI
+    // ══════════════════════════════════════════════════════════════════════
+
+    private void renderPartySelect() {
+        int bgT = (mTexPartyBg > 0) ? mTexPartyBg : mTexMenuBg;
+        if (bgT > 0) {
+            drawTex(bgT, 0, 0, mW, mH, 0.55f);
+            float[] ov = {C_BG[0], C_BG[1], C_BG[2], 0.62f};
+            rect(0, 0, mW, mH, ov);
+        } else {
+            rect(0, 0, mW, mH, C_BG);
+        }
+
+        float cx = mW / 2f;
+
+        // Başlık
+        float tPS = fitTextPS("PARTINIZI SECIN", mUsableW*0.82f, gPS*1.2f);
+        drawStringC("PARTINIZI SECIN", mH*0.05f, tPS, C_GOLD);
+
+        // Alt başlık
+        float subPS = gPS*0.58f;
+        float[] subC = {C_GREY[0], C_GREY[1], C_GREY[2], 0.70f};
+        drawStringC("1999 TURKIYE GENEL SECIMLERI", mH*0.12f, subPS, subC);
+
+        // Ayırıcı
+        float[] lineC = {C_GDIM[0], C_GDIM[1], C_GDIM[2], 0.35f};
+        rect(mPad*2f, mH*0.17f, mUsableW-mPad*2f, Math.max(1f, gPS*0.25f), lineC);
+
+        // Parti kartları
+        float cardW = mUsableW*0.92f;
+        float cardH = mH*0.20f;
+        float cardX = cx - cardW/2f;
+        float gap   = gPS*3.5f;
+        float startY = mH*0.20f;
+
+        for (int i = 0; i < PARTY_IDS.length; i++) {
+            float cardY  = startY + i*(cardH+gap);
+            boolean hover   = (mPartyHover == i);
+            boolean pressed = (mPartyPress == i);
+
+            // Zemin
+            float[] bgC = pressed ? C_PRES : (hover ? C_DARK : C_BG);
+            rect(cardX, cardY, cardW, cardH, bgC);
+
+            // Sol renkli şerit
+            float stripW = gPS*2.5f;
+            float sa = hover ? 1.0f : 0.55f;
+            float[] sC = {
+                C_GOLD[0]*(1f-i*0.18f),
+                C_GOLD[1]*(1f-i*0.08f),
+                C_GOLD[2]*(0.4f+i*0.15f),
+                sa
+            };
+            rect(cardX, cardY, stripW, cardH, sC);
+
+            // Logo
+            float logoS  = cardH * 0.70f;
+            float logoX  = cardX + stripW + gPS*2f;
+            float logoY  = cardY + cardH/2f - logoS/2f;
+            if (mTexPartyLogo[i] > 0) {
+                drawTex(mTexPartyLogo[i], logoX, logoY, logoS, logoS, 0.90f);
+            } else {
+                // Logo yoksa placeholder çerçeve
+                rect(logoX, logoY, logoS, logoS, C_DARK);
+                float pb = Math.max(1.5f, gPS*0.3f);
+                rect(logoX, logoY, logoS, pb, C_GDIM);
+                rect(logoX, logoY+logoS-pb, logoS, pb, C_GDIM);
+                rect(logoX, logoY, pb, logoS, C_GDIM);
+                rect(logoX+logoS-pb, logoY, pb, logoS, C_GDIM);
+                drawStringC(PARTY_IDS[i], logoY+logoS/2f-gPS*4f, gPS*0.65f, C_GDIM);
+            }
+
+            // Metin alanı
+            float textX  = logoX + logoS + gPS*2.5f;
+            float textW  = (cardX + cardW - gPS*2f) - textX;
+
+            // Kısa ID
+            float idPS = gPS*0.72f;
+            float[] idC = hover ? C_GOLD : C_GDIM;
+            drawString(PARTY_IDS[i], textX, cardY + gPS*1.5f, idPS, idC);
+
+            // Tam ad
+            float namePS = fitTextPS(PARTY_NAMES[i], textW, gPS*0.58f);
+            float nameX  = textX + charWidth(PARTY_IDS[i], idPS) + gPS*2f;
+            float[] nameC = C_GOLD;
+            drawString(PARTY_NAMES[i], nameX, cardY + gPS*1.5f, namePS, nameC);
+
+            // Slogan
+            float slogPS = gPS*0.50f;
+            float[] slogC = {C_GDIM[0], C_GDIM[1], C_GDIM[2], hover ? 0.90f : 0.65f};
+            drawString(PARTY_SLOGANS[i], textX, cardY + gPS*1.5f + idPS*11f + gPS, slogPS, slogC);
+
+            // Açıklama (hover'da)
+            if (hover) {
+                float descPS = gPS*0.46f;
+                String[] descLines = PARTY_DESC[i].split("\n");
+                for (int d = 0; d < descLines.length && d < 2; d++) {
+                    float[] dC = {C_GREY[0], C_GREY[1], C_GREY[2], 0.80f};
+                    drawString(descLines[d], textX,
+                        cardY + gPS*1.5f + idPS*11f + gPS + slogPS*11f + d*descPS*11f,
+                        descPS, dC);
+                }
+                // "SEÇ >" ok
+                float aPS = gPS*0.65f;
+                String aStr = "SEC >";
+                float aW = charWidth(aStr, aPS);
+                drawString(aStr, cardX+cardW-gPS*2f-aW, cardY+cardH/2f-aPS*4.5f, aPS, C_GOLD);
+            }
+
+            // Çerçeve
+            float b = Math.max(1.5f, gPS*0.35f);
+            float[] brdC = (hover||pressed) ? C_GOLD : C_GDIM;
+            rect(cardX,          cardY,          cardW, b,     brdC);
+            rect(cardX,          cardY+cardH-b,  cardW, b,     brdC);
+            rect(cardX,          cardY,          b,     cardH, brdC);
+            rect(cardX+cardW-b,  cardY,          b,     cardH, brdC);
+        }
+
+        // Alt bilgi
+        float[] iC = {C_GREY[0], C_GREY[1], C_GREY[2], 0.50f};
+        drawStringC("BIR PARTIYE DOKUN VE SEC", mH*0.88f, gPS*0.54f, iC);
+
+        // Geri butonu
+        float backW = mUsableW*0.40f, backH = Math.max(gPS*8f, mH*0.054f);
+        float backX = cx - backW/2f, backY = mH*0.92f;
+        drawButton("GERI", backX, backY, backW, backH, false, false, false);
+
+        scanLines();
+    }
+
+    private void touchPartySelect(int action, float x, float y) {
+        float cx = mW/2f, cardW = mUsableW*0.92f, cardH = mH*0.20f;
+        float cardX = cx-cardW/2f, gap = gPS*3.5f, startY = mH*0.20f;
+        float backW = mUsableW*0.40f, backH = Math.max(gPS*8f, mH*0.054f);
+        float backX = cx-backW/2f, backY = mH*0.92f;
+        if (action == MotionEvent.ACTION_DOWN) {
+            mPartyPress = -1;
+            for (int i = 0; i < PARTY_IDS.length; i++)
+                if (hit(x,y, cardX, startY+i*(cardH+gap), cardW, cardH))
+                    { mPartyPress=i; mPartyHover=i; return; }
+        } else if (action == MotionEvent.ACTION_MOVE) {
+            mPartyHover = -1;
+            for (int i = 0; i < PARTY_IDS.length; i++)
+                if (hit(x,y, cardX, startY+i*(cardH+gap), cardW, cardH)) { mPartyHover=i; break; }
+        } else if (action == MotionEvent.ACTION_UP) {
+            int p = mPartyPress; mPartyPress=-1; mPartyHover=-1;
+            if (hit(x,y, backX,backY,backW,backH)) { mState=ST_MENU; return; }
+            if (p>=0 && hit(x,y, cardX, startY+p*(cardH+gap), cardW, cardH))
+                startGameWithParty(p);
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    //  OYUN BAŞLATMA
+    // ══════════════════════════════════════════════════════════════════════
+
+    private void startGameWithParty(int party) {
+        mGameState.sifirla();
+        mGameState.partyChoice = party;
+        mGameState.gamePhase   = GameState.PHASE_OPPOSITION;
+        // Senaryo yükle
+        String folder = "scenario/" + mGameState.getScenarioFolder();
+        mEngine.loadScenario(folder + "/cards.json");
+        mEngine.loadEndings(folder + "/endings.json");
+        mEngine.startScenario(mGameState);
+        mCardSwipeX=0f; mCardSwiping=false; mTouchAction=-1;
+        mPhaseStartTime = System.currentTimeMillis();
+        mState = ST_GAME;
+    }
+
+    private void startRulingPhase() {
+        mGameState.gamePhase = GameState.PHASE_RULING;
+        mGameState.decisionCount = 0; // İktidar için sayacı sıfırla
+        // İktidar senaryosunu yükle
+        mEngine.loadScenario("scenario/Ruling_Era/cards.json");
+        mEngine.loadEndings("scenario/Ruling_Era/endings.json");
+        mEngine.startScenario(mGameState);
+        mCardSwipeX=0f; mCardSwiping=false; mTouchAction=-1;
+        mPhaseStartTime = System.currentTimeMillis();
+        mState = ST_RULING;
+    }
+
+    private void startCredits() {
+        mCreditsChar = 0;
+        mCreditsLast = System.currentTimeMillis();
+        mCreditsDone = false;
+        mState = ST_CREDITS;
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    //  OYUN — KART EKRANI (hem muhalefet hem iktidar kullanır)
+    // ══════════════════════════════════════════════════════════════════════
+
+    private void renderGame(boolean isRuling) {
+        int bgTex = isRuling ? mTexGovBg : mTexOppBg;
+        if (bgTex > 0) {
+            drawTex(bgTex, 0, 0, mW, mH, 0.65f);
+            float[] ov = {C_BG[0], C_BG[1], C_BG[2], 0.55f};
+            rect(0, 0, mW, mH, ov);
+        } else {
+            rect(0, 0, mW, mH, C_BG);
+        }
+
+        // İstatistik barları
+        float barAreaY = mPad*1.2f, barAreaH = mH*0.10f;
+        drawStatBars(barAreaY, barAreaH);
+
+        // Kart
+        ScenarioEngine.Card card = mEngine.getCurrentCard();
+        if (card == null) {
+            // Kart kalmadı
+            if (!mGameState.oyunBitti) {
+                if (isRuling) startCredits();
+                else triggerElectionScreen();
+            }
+            scanLines();
+            return;
+        }
+        syncCardEffects(card);
+
+        float cardW = mUsableW*0.88f, cardH = mH*0.54f;
+        float cardCX = mW/2f - cardW/2f, cardCY = mH*0.20f;
+        float absSwipe = Math.abs(mCardSwipeX), tiltOff = mCardSwipeX*0.07f;
+        float cardX = cardCX + mCardSwipeX;
+
+        // Gölge
+        float[] shC = {0f, 0f, 0f, 0.28f};
+        rect(cardX+gPS, cardCY+tiltOff+gPS, cardW, cardH, shC);
+
+        // Kart zemin + karakter
+        rect(cardX, cardCY+tiltOff, cardW, cardH, C_DARK);
+        drawCardCharacter(card.character, cardX, cardCY+tiltOff, cardW, cardH);
+
+        // Çerçeve
+        float[] frameCol = (absSwipe > mW*0.05f) ? ((mCardSwipeX>0) ? C_GOLD : C_GDIM) : C_GDIM;
+        float b = Math.max(1.5f, gPS*0.4f);
+        rect(cardX,         cardCY+tiltOff,        cardW, b,     frameCol);
+        rect(cardX,         cardCY+tiltOff+cardH-b,cardW, b,     frameCol);
+        rect(cardX,         cardCY+tiltOff,        b,     cardH, frameCol);
+        rect(cardX+cardW-b, cardCY+tiltOff,        b,     cardH, frameCol);
+
+        // İçerik
+        float innerX = cardX + gPS*3f, innerW = cardW - gPS*6f;
+        float innerY = cardCY + tiltOff + gPS*2.5f;
+
+        // Karakter etiketi
+        float charPS = gPS*0.56f;
+        float[] dimC = {C_GREY[0], C_GREY[1], C_GREY[2], 0.80f};
+        drawString(card.character.replace("_"," ").toUpperCase(), innerX, innerY, charPS, dimC);
+
+        // Ayırıcı
+        float divY = innerY + charPS*10f + gPS*0.5f;
+        float[] lineC2 = {C_GDIM[0], C_GDIM[1], C_GDIM[2], 0.45f};
+        rect(innerX, divY, innerW, Math.max(1f, gPS*0.25f), lineC2);
+
+        // Flavor metni
+        float flavPS = gPS*0.60f;
+        float[] flavC = {C_GDIM[0], C_GDIM[1], C_GDIM[2], 0.75f};
+        List<String> fLines = wrapText(card.flavor, innerW, flavPS);
+        float flavY = divY + gPS*1.5f;
+        for (int i = 0; i < Math.min(fLines.size(), 2); i++)
+            drawString(fLines.get(i), innerX, flavY+i*flavPS*11f, flavPS, flavC);
+
+        // Ana metin
+        float textPS = gPS*0.72f;
+        float textY = flavY + Math.min(fLines.size(),2)*flavPS*11f + gPS*2f;
+        List<String> tLines = wrapText(card.text, innerW, textPS);
+        for (int i = 0; i < Math.min(tLines.size(), 6); i++)
+            drawString(tLines.get(i), innerX, textY+i*textPS*11f, textPS, C_GOLD);
+
+        // EVET / HAYIR etiketi
+        if (absSwipe > mW*0.04f) {
+            boolean goRight = (mCardSwipeX > 0);
+            String lbl = goRight ? "EVET" : "HAYIR";
+            float la = Math.min(1f, absSwipe / (mW*0.14f));
+            float[] lc = goRight
+                ? new float[]{C_GOLD[0],C_GOLD[1],C_GOLD[2],la}
+                : new float[]{C_GDIM[0],C_GDIM[1],C_GDIM[2],la};
+            float lPS = fitTextPS(lbl, cardW*0.55f, gPS*2.0f);
+            float lW  = charWidth(lbl, lPS);
+            float lX  = mW/2f - lW/2f + mCardSwipeX*0.3f;
+            float lY  = cardCY + cardH*0.40f + tiltOff;
+            float pad = gPS*2.5f;
+            float[] boxC = {C_BG[0], C_BG[1], C_BG[2], la*0.80f};
+            rect(lX-pad, lY-pad, lW+pad*2f, lPS*10f+pad*2f, boxC);
+            float bl2 = Math.max(1f, gPS*0.35f);
+            rect(lX-pad, lY-pad,               lW+pad*2f, bl2,         lc);
+            rect(lX-pad, lY+lPS*10f+pad-bl2,   lW+pad*2f, bl2,         lc);
+            rect(lX-pad, lY-pad,               bl2,       lPS*10f+pad*2f, lc);
+            rect(lX+lW+pad-bl2, lY-pad,        bl2,       lPS*10f+pad*2f, lc);
+            drawString(lbl, lX, lY, lPS, lc);
+            drawBarHintDots(goRight, barAreaY, barAreaH);
+        }
+
+        // Yön okları
+        if (!mCardSwiping) {
+            float[] arC = {C_GDIM[0], C_GDIM[1], C_GDIM[2], 0.40f};
+            float arPS = gPS*0.65f;
+            drawString("<", mPad, mH*0.46f, arPS, arC);
+            drawString(">", mW-mPad-charWidth(">",arPS), mH*0.46f, arPS, arC);
+        }
+
+        // Seçenek etiketleri
+        float optY = cardCY + cardH + gPS*3f, optPS = gPS*0.58f;
+        float[] lOptC = {(mCardSwipeX<0)?C_GOLD[0]:C_GDIM[0],
+                         (mCardSwipeX<0)?C_GOLD[1]:C_GDIM[1],
+                         (mCardSwipeX<0)?C_GOLD[2]:C_GDIM[2], 1f};
+        float[] rOptC = {(mCardSwipeX>0)?C_GOLD[0]:C_GDIM[0],
+                         (mCardSwipeX>0)?C_GOLD[1]:C_GDIM[1],
+                         (mCardSwipeX>0)?C_GOLD[2]:C_GDIM[2], 1f};
+        drawString("< "+card.choiceLeft.label, mPad, optY, optPS, lOptC);
+        String rStr = card.choiceRight.label+" >";
+        drawString(rStr, mW-mPad-charWidth(rStr,optPS), optY, optPS, rOptC);
+
+        // Menü butonu (sağ üst)
+        float mBw = mUsableW*0.25f, mBh = Math.max(gPS*7f, mH*0.045f);
+        float mBx = mW-mPad-mBw, mBy = mPad*0.5f;
+        drawButton("MENU", mBx, mBy, mBw, mBh, false, false, false);
+
+        // Alt durum çubuğu
+        renderStatusBar(isRuling);
+
+        // Zaman barı (kalan süre)
+        renderTimeBar(isRuling);
+
+        scanLines();
+    }
+
+    private void renderTimeBar(boolean isRuling) {
+        long dur = isRuling ? RULING_DURATION_MS : OPPOSITION_DURATION_MS;
+        long elapsed = System.currentTimeMillis() - mPhaseStartTime;
+        float prog = Math.min(1f, elapsed / (float) dur);
+        float bY = mH*0.88f, bH = Math.max(gPS*1.2f, 3f);
+        float[] trackC = {C_DARK[0], C_DARK[1], C_DARK[2], 0.80f};
+        rect(0, bY, mW, bH, trackC);
+        float[] fillC = prog > 0.85f ? C_DANGER : (prog > 0.65f ? C_WARN : C_GOLD);
+        if (prog < 1f) rect(0, bY, mW*prog, bH, fillC);
+        // Kalan süre metni
+        long remaining = Math.max(0, dur - elapsed);
+        int minutes = (int)(remaining / 60000);
+        int seconds = (int)((remaining % 60000) / 1000);
+        String timeStr = minutes + ":" + (seconds < 10 ? "0" : "") + seconds;
+        float tPS = gPS*0.50f;
+        float[] tC = {fillC[0], fillC[1], fillC[2], 0.75f};
+        drawString(timeStr, mPad, bY - tPS*10f - gPS, tPS, tC);
+    }
+
+    private void drawCardCharacter(String charId, float cardX, float cardY,
+                                   float cardW, float cardH) {
+        int texIdx = -1;
+        for (int i = 0; i < CHAR_NAMES.length; i++)
+            if (CHAR_NAMES[i].equals(charId)) { texIdx=i; break; }
+        if (texIdx < 0 || mTexChar[texIdx] <= 0) return;
+        float charH = cardH*0.82f;
+        float charW = charH*0.65f;
+        float charX = cardX + cardW - charW - gPS;
+        float charY = cardY + cardH*0.09f;
+        drawTex(mTexChar[texIdx], charX, charY, charW, charH, 0.18f);
+    }
+
+    private void syncCardEffects(ScenarioEngine.Card card) {
+        mCardEffectLeft  = new int[]{ card.choiceLeft.halk,  card.choiceLeft.din,
+                                      card.choiceLeft.para,  card.choiceLeft.ordu  };
+        mCardEffectRight = new int[]{ card.choiceRight.halk, card.choiceRight.din,
+                                      card.choiceRight.para, card.choiceRight.ordu };
+    }
+
+    private void touchGame(int action, float x, float y) {
+        float cardW = mUsableW*0.88f, cardH = mH*0.54f;
+        float cardX0 = mW/2f-cardW/2f, cardY0 = mH*0.20f;
+        float threshold = mW*0.27f;
+        float mBw = mUsableW*0.25f, mBh = Math.max(gPS*7f, mH*0.045f);
+        float mBx = mW-mPad-mBw, mBy = mPad*0.5f;
+        if (action == MotionEvent.ACTION_UP && hit(x,y, mBx,mBy,mBw,mBh)) {
+            mCardSwipeX=0f; mCardSwiping=false; mState=ST_MENU; return;
+        }
+        switch (action) {
+            case MotionEvent.ACTION_DOWN:
+                if (hit(x,y, cardX0,cardY0,cardW,cardH))
+                    { mCardSwiping=true; mCardSwipeStartX=x; mCardSwipeX=0f; }
+                break;
+            case MotionEvent.ACTION_MOVE:
+                if (mCardSwiping) mCardSwipeX = x - mCardSwipeStartX;
+                break;
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_CANCEL:
+                if (mCardSwiping) {
+                    if      (mCardSwipeX >  threshold) onCardChosen(true);
+                    else if (mCardSwipeX < -threshold) onCardChosen(false);
+                    mCardSwipeX=0f; mCardSwiping=false;
+                }
+                break;
+        }
+    }
+
+    private void onCardChosen(boolean right) {
+        mEngine.choose(mGameState, right);
+        if (mGameState.oyunBitti) {
+            // Felaket sonu
+            ScenarioEngine.Ending e = mEngine.getEnding(mGameState);
+            mEndingTitle = (e != null) ? e.title : "OYUN BITTI";
+            mEndingBody  = (e != null) ? e.body  : "Bir denge coktu.";
+            mEndingChar=0; mEndingLast=System.currentTimeMillis(); mEndingDone=false;
+            mState = ST_ENDING;
+        }
+        // Zaman/karar kontrolü update()'te yapılır
+    }
+
+    // ── Stat barları ──────────────────────────────────────────────────────
+
+    private void drawStatBars(float areaY, float areaH) {
+        int bc = BAR_LABELS.length;
+        float slotW = mUsableW / (float) bc;
+        float barH  = Math.max(4f, gPS*1.4f);
+        float labPS = gPS*0.52f, barY = areaY+areaH*0.50f, labY = areaY+areaH*0.02f;
+        int[] vals = {mGameState.halk, mGameState.din, mGameState.para, mGameState.ordu};
+        for (int i = 0; i < bc; i++) {
+            float bx = mPad + i*slotW, bw = slotW*0.84f;
+            int v = vals[i], d = mGameState.getDangerLevel(v);
+            float[] fC = (d==2) ? C_DANGER : (d==1) ? C_WARN : C_GOLD;
+            rect(bx, barY, bw, barH, C_DARK);
+            float fill = (v/100f)*bw;
+            if (fill > 0) rect(bx, barY, fill, barH, fC);
+            float bl = Math.max(1f, gPS*0.2f);
+            float[] frC = {fC[0], fC[1], fC[2], 0.55f};
+            rect(bx,     barY,        bw, bl,   frC);
+            rect(bx,     barY+barH-bl,bw, bl,   frC);
+            rect(bx,     barY,        bl, barH,  frC);
+            rect(bx+bw-bl,barY,       bl, barH,  frC);
+            float[] lC = (d>0) ? fC : C_GDIM;
+            float lw = charWidth(BAR_LABELS[i], labPS);
+            drawString(BAR_LABELS[i], bx+bw/2f-lw/2f, labY, labPS, lC);
+            if (d > 0) {
+                String ns = String.valueOf(v);
+                float nPS = labPS*0.85f;
+                float[] nC = {fC[0], fC[1], fC[2], 0.90f};
+                drawString(ns, bx+bw/2f-charWidth(ns,nPS)/2f, barY+barH+gPS*0.5f, nPS, nC);
+            }
+        }
+    }
+
+    private void drawBarHintDots(boolean goRight, float areaY, float areaH) {
+        int[] eff = goRight ? mCardEffectRight : mCardEffectLeft;
+        int bc = BAR_LABELS.length;
+        float slotW = mUsableW / (float) bc, barY = areaY + areaH*0.50f;
+        float dotR = Math.max(gPS*1.5f, 4f);
+        for (int i = 0; i < bc && i < eff.length; i++) {
+            if (eff[i] == 0) continue;
+            float bx = mPad + i*slotW, bw = slotW*0.84f;
+            float dcx = bx + bw/2f, dcy = barY - dotR*2.4f;
+            float[] db = (eff[i]>0) ? C_GOLD : C_GDIM;
+            float al = 0.60f + 0.40f*(float)Math.sin(mFrame*0.17f);
+            float[] bC = {db[0], db[1], db[2], al};
+            rect(dcx-dotR, dcy-dotR, dotR*2f, dotR*2f, bC);
+            String sign = (eff[i]>0) ? "+" : "-";
+            float sPS = gPS*0.44f;
+            drawString(sign, dcx-charWidth(sign,sPS)/2f, dcy-sPS*5f, sPS, bC);
+        }
+    }
+
+    private void renderStatusBar(boolean isRuling) {
+        float bY = mH*0.91f, bH = mH - bY;
+        float[] sC = {C_GDIM[0], C_GDIM[1], C_GDIM[2], 0.28f};
+        rect(0, bY - Math.max(1f,gPS*0.25f), mW, Math.max(1f,gPS*0.25f), sC);
+        rect(0, bY, mW, bH, C_DARK);
+        float ps = gPS*0.54f;
+        String yr  = "YIL " + mGameState.year;
+        String ac  = isRuling ? "IKTIDAR" : "MUHALEFET";
+        String ti  = mGameState.getTitle();
+        drawString(yr, mPad, bY+gPS*0.8f, ps, C_GOLD);
+        float aw = charWidth(ac, ps);
+        drawString(ac, mW/2f-aw/2f, bY+gPS*0.8f, ps, isRuling ? C_WARN : C_GDIM);
+        float tw = charWidth(ti, ps);
+        drawString(ti, mW-mPad-tw, bY+gPS*0.8f, ps, C_GREY);
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    //  SEÇİM GECESİ
+    // ══════════════════════════════════════════════════════════════════════
+
+    private void triggerElectionScreen() {
+        mElectionResult = mGameState.getElectionResult();
+        mElectionScore  = mGameState.getElectionScore();
+        mState = ST_ELECTION;
+    }
+
+    private void renderElection() {
+        rect(0, 0, mW, mH, C_BG);
+        float cx = mW / 2f;
+
+        // Başlık
+        float tPS = fitTextPS("SECIM GECESI", mUsableW*0.80f, gPS*1.2f);
+        drawStringC("SECIM GECESI", mH*0.08f, tPS, C_GOLD);
+
+        // Ayırıcı
+        float[] lineC = {C_GDIM[0], C_GDIM[1], C_GDIM[2], 0.40f};
+        rect(mPad*2f, mH*0.17f, mUsableW-mPad*2f, Math.max(1f, gPS*0.25f), lineC);
+
+        // Puan
+        String scStr = "HALK DESTEGI: %" + mElectionScore;
+        drawStringC(scStr, mH*0.22f, gPS*0.80f, C_GDIM);
+
+        // Sonuç
+        String pName = mGameState.getPartyDisplayName();
+        String rStr; float[] rC; String[] subLines;
+        if (mElectionResult == GameState.ELECTION_WIN) {
+            rStr = "KAZANDINIZ!"; rC = C_GOLD;
+            subLines = new String[]{
+                pName + " BIRINCI PARTI OLDU.",
+                "",
+                "SECIMLERI KAZANDINIZ.",
+                "IKTIDAR DEVRI BASLIYOR."
+            };
+        } else if (mElectionResult == GameState.ELECTION_TIE) {
+            rStr = "IKINCI TUR"; rC = C_WARN;
+            subLines = new String[]{
+                "SECIM IKINCI TURA GITTI.",
+                "",
+                "ZORLU MUZAKERELER SONUCUNDA",
+                "KOALISYON KURULDU.",
+                "IKTIDARA GECIYORSUNUZ."
+            };
+        } else {
+            rStr = "KAYBETTINIZ"; rC = C_DANGER;
+            subLines = new String[]{
+                pName + " UCUNCU PARTI.",
+                "",
+                "ANCAK KOALISYON ORTAGI OLARAK",
+                "HUKUMETE GIREBILDINIZ.",
+                "IKTIDAR DENEYIMI BASLIYOR."
+            };
+        }
+
+        float rPS = fitTextPS(rStr, mUsableW*0.82f, gPS*1.8f);
+        drawStringC(rStr, mH*0.32f, rPS, rC);
+
+        // Parti logosu
+        int pi = mGameState.partyChoice;
+        if (pi < 3 && mTexPartyLogo[pi] > 0) {
+            float ls = mW*0.18f;
+            drawTex(mTexPartyLogo[pi], cx-ls/2f, mH*0.44f, ls, ls, 0.70f);
+        }
+
+        // Açıklama
+        float bodyPS = gPS*0.65f, bodyY = mH*0.54f;
+        for (int i = 0; i < subLines.length; i++) {
+            float[] bC = subLines[i].isEmpty() ? C_BG : C_GOLD;
+            drawStringC(subLines[i], bodyY + i*bodyPS*11.5f, bodyPS, bC);
+        }
+
+        // Buton
+        float bigBw = mUsableW*0.75f, bigBh = Math.max(gPS*10f, mH*0.065f);
+        String btnLabel = "IKTIDARA GEC";
+        drawButton(btnLabel, cx-bigBw/2f, mH*0.80f, bigBw, bigBh, false, false, false);
+
+        // Geri / Ana menü
+        float bh = Math.max(gPS*8f, mH*0.054f), bw2 = mUsableW*0.42f, gap = gPS*3f, by2 = mH*0.90f;
+        float bx1 = cx-gap/2f-bw2, bx2 = cx+gap/2f;
+        drawButton("YENIDEN", bx1, by2, bw2, bh, false, false, false);
+        drawButton("ANA MENU", bx2, by2, bw2, bh, false, false, false);
+
+        scanLines();
+    }
+
+    private void touchElection(int action, float x, float y) {
+        if (action != MotionEvent.ACTION_UP) return;
+        float cx = mW/2f;
+        float bigBw = mUsableW*0.75f, bigBh = Math.max(gPS*10f, mH*0.065f);
+        if (hit(x,y, cx-bigBw/2f, mH*0.80f, bigBw, bigBh)) {
+            startRulingPhase(); return;
+        }
+        float bh = Math.max(gPS*8f, mH*0.054f), bw2 = mUsableW*0.42f, gap = gPS*3f, by2 = mH*0.90f;
+        float bx1 = cx-gap/2f-bw2, bx2 = cx+gap/2f;
+        if (hit(x,y, bx1,by2,bw2,bh)) startGameWithParty(mGameState.partyChoice);
+        else if (hit(x,y, bx2,by2,bw2,bh)) { mGameState.sifirla(); mState=ST_MENU; }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    //  FELAKET SONU
+    // ══════════════════════════════════════════════════════════════════════
+
+    private void updateEnding() {
+        if (mEndingDone) return;
+        long now = System.currentTimeMillis();
+        String full = mEndingTitle + "\n\n" + mEndingBody;
+        if (now - mEndingLast >= ENDING_CHAR_MS) {
+            mEndingLast = now;
+            if (mEndingChar < full.length()) mEndingChar++;
+            else mEndingDone = true;
+        }
+    }
+
+    private void renderEnding() {
+        rect(0, 0, mW, mH, C_BG);
+        float cx = mW / 2f;
+        String full = mEndingTitle + "\n\n" + mEndingBody;
+        String vis  = full.substring(0, Math.min(mEndingChar, full.length()));
+        String[] parts = vis.split("\n", 2);
+        String tVis = parts[0];
+        String bVis = (parts.length > 1) ? parts[1].replaceFirst("^\n", "") : "";
+        float tPS = fitTextPS(tVis.isEmpty() ? "X" : tVis, mUsableW*0.80f, gPS*1.3f);
+        drawStringC(tVis, mH*0.10f, tPS, C_GOLD);
+        float[] lC = {C_GDIM[0], C_GDIM[1], C_GDIM[2], 0.60f};
+        rect(mPad*2f, mH*0.10f+tPS*10f+gPS, mUsableW-mPad*2f, Math.max(1f,gPS*0.3f), lC);
+        float bPS = gPS*0.70f, bY = mH*0.10f + tPS*10f + gPS*4f;
+        List<String> bLines = wrapText(bVis, mUsableW*0.86f, bPS);
+        for (int i = 0; i < bLines.size(); i++)
+            drawStringC(bLines.get(i), bY + i*bPS*11.5f, bPS, C_GOLD);
+        if (!mEndingDone && (mFrame/15)%2 == 0)
+            rect(cx, bY + bLines.size()*bPS*11.5f, bPS, bPS*8f, C_GOLD);
+        if (mEndingDone) {
+            float bh = Math.max(gPS*8f, mH*0.056f);
+            float bw1 = mUsableW*0.44f, bw2 = mUsableW*0.44f, gap = gPS*3f, by = mH*0.84f;
+            float bx1 = cx-gap/2f-bw1, bx2 = cx+gap/2f;
+            drawButton("YENIDEN",  bx1, by, bw1, bh, false, false, false);
+            drawButton("ANA MENU", bx2, by, bw2, bh, false, false, false);
+            if (mTouchAction == MotionEvent.ACTION_UP) {
+                if      (hit(mTouchX,mTouchY, bx1,by,bw1,bh)) {
+                    startGameWithParty(mGameState.partyChoice); mTouchAction=-1;
+                } else if (hit(mTouchX,mTouchY, bx2,by,bw2,bh)) {
+                    mGameState.sifirla(); mState=ST_MENU; mTouchAction=-1;
+                }
+            }
+        }
+        scanLines();
+    }
+
+    private void touchEnding(int action) {
+        if (action == MotionEvent.ACTION_DOWN && !mEndingDone) {
+            mEndingChar = (mEndingTitle + "\n\n" + mEndingBody).length();
+            mEndingDone = true;
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    //  KREDİLER / BİTİŞ EKRANI
+    // ══════════════════════════════════════════════════════════════════════
+
+    private void updateCredits() {
+        if (mCreditsDone) return;
+        long now = System.currentTimeMillis();
+        if (now - mCreditsLast >= CREDITS_CHAR_MS) {
+            mCreditsLast = now;
+            // Her satır bir anda görünür (harf harf değil, satır satır)
+            if (mCreditsChar < CREDITS_LINES.length) mCreditsChar++;
+            else mCreditsDone = true;
+        }
+    }
+
+    private void renderCredits() {
+        // Arkaplan
+        if (mTexMenuBg > 0) {
+            drawTex(mTexMenuBg, 0, 0, mW, mH, 0.35f);
+            float[] ov = {C_BG[0], C_BG[1], C_BG[2], 0.72f};
+            rect(0, 0, mW, mH, ov);
+        } else {
+            rect(0, 0, mW, mH, C_BG);
+        }
+
+        float cx = mW / 2f;
+
+        // Üst dekoratif çizgi
+        float[] lC = {C_GOLD[0], C_GOLD[1], C_GOLD[2], 0.50f};
+        rect(mPad*3f, mH*0.05f, mUsableW-mPad*3f, Math.max(1f, gPS*0.35f), lC);
+
+        // Logo (varsa)
+        if (mTexLogo > 0) {
+            float ls = mW*0.14f;
+            drawTex(mTexLogo, cx-ls/2f, mH*0.06f, ls, ls, 0.60f);
+        }
+
+        // Satırları göster
+        float lineH = mH*0.032f;
+        float startY = mH*0.13f;
+
+        for (int i = 0; i < Math.min(mCreditsChar, CREDITS_LINES.length); i++) {
+            String line = CREDITS_LINES[i];
+            float y = startY + i * lineH;
+
+            // Ekrandan çıkıyorsa gösterme
+            if (y > mH * 0.90f) break;
+
+            if (line.isEmpty()) continue;
+
+            float[] col;
+            float ps;
+
+            if (line.startsWith("---") && line.endsWith("---")) {
+                // Bölüm başlığı
+                ps  = gPS*0.58f;
+                col = C_GDIM;
+                rect(mPad*4f, y+ps*4.5f, mUsableW-mPad*4f, Math.max(1f, gPS*0.22f), C_DARK);
+                drawStringC(line, y, ps, col);
+            } else if (i == 0) {
+                // Ana başlık
+                ps  = fitTextPS(line, mUsableW*0.85f, gPS*1.1f);
+                col = C_GOLD;
+                drawStringC(line, y, ps, col);
+            } else {
+                // Normal satır
+                boolean isSubtitle = (i > 0 && !CREDITS_LINES[i-1].isEmpty()
+                                      && CREDITS_LINES[i-1].startsWith("---"));
+                ps  = isSubtitle ? gPS*0.75f : gPS*0.60f;
+                col = isSubtitle ? C_GOLD : C_GDIM;
+                drawStringC(line, y, ps, col);
+            }
+        }
+
+        // Alt çizgi
+        rect(mPad*3f, mH*0.90f, mUsableW-mPad*3f, Math.max(1f, gPS*0.35f), lC);
+
+        // Buton
+        if (mCreditsDone) {
+            float bw = mUsableW*0.65f, bh = Math.max(gPS*9f, mH*0.058f);
+            drawButton("ANA MENÜYE DON", cx-bw/2f, mH*0.92f, bw, bh, false, false, false);
+        } else {
+            float[] iC = {C_GREY[0], C_GREY[1], C_GREY[2], 0.50f};
+            drawStringC("...", mH*0.94f, gPS*0.60f, iC);
+        }
+
+        scanLines();
+    }
+
+    private void touchCredits(int action, float x, float y) {
+        if (action != MotionEvent.ACTION_UP) return;
+        if (!mCreditsDone) {
+            mCreditsChar = CREDITS_LINES.length; mCreditsDone = true;
+        } else {
+            mGameState.sifirla(); mState = ST_MENU;
+        }
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -663,642 +1526,36 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    //  FONT TEST
+    //  ASSET YÜKLEME
     // ══════════════════════════════════════════════════════════════════════
 
-    private int ftTotal() {
-        int n = 0;
-        for (String s : FONT_TEST_LINES) n += s.length();
-        return n;
-    }
-
-    private void updateFontTest() {
-        if (mFtDone) return;
-        long now = System.currentTimeMillis();
-        if (now - mFtLast >= FT_CHAR_MS) {
-            mFtLast = now;
-            if (mFtChar < ftTotal()) mFtChar++;
-            else mFtDone = true;
-        }
-    }
-
-    private void renderFontTest() {
-        rect(0, 0, mW, mH, C_BG);
-        float sy = mH*0.06f, maxLH = (mH*0.72f) / FONT_TEST_LINES.length;
-        int left = mFtChar;
-        for (int li = 0; li < FONT_TEST_LINES.length; li++) {
-            String line = FONT_TEST_LINES[li];
-            float ry = sy + li*maxLH;
-            float ps = fitTextPS(line, mUsableW*0.92f, gPS*1.05f);
-            int show = Math.min(left, line.length()); left -= show;
-            if (show <= 0) break;
-            String vis = line.substring(0, show);
-            float[] bc = {C_GDIM[0], C_GDIM[1], C_GDIM[2], 0.25f};
-            rect(mPad, ry+ps*8f, mUsableW, Math.max(1f, gPS*0.3f), bc);
-            drawString(vis, mPad, ry, ps, C_GOLD);
-            if (show < line.length() && (mFrame/12)%2 == 0)
-                rect(mPad + charWidth(vis,ps), ry, ps*0.8f, ps*9f, C_GOLD);
-        }
-        float infoPS = gPS*0.58f;
-        float[] ic = {C_GREY[0], C_GREY[1], C_GREY[2], 0.70f};
-        if (!mFtDone) {
-            drawString("YAZILIYOR...", mPad, mH*0.90f, infoPS, ic);
-        } else {
-            float bw = mUsableW*0.50f, bh = Math.max(gPS*9f, mH*0.058f);
-            drawButton("DEVAM", mW/2f-bw/2f, mH*0.88f, bw, bh, false, false, false);
-        }
-        float[] sc = {C_GDIM[0], C_GDIM[1], C_GDIM[2], 0.12f};
-        rect(0, 0, mPad*4f, mPad*4f, sc);
-        scanLines();
-    }
-
-    private void touchFontTest(int action, float x, float y) {
-        if (action != MotionEvent.ACTION_UP) return;
-        if (hit(x,y, 0,0, mPad*4f,mPad*4f)) { startPartySelect(); return; }
-        if (!mFtDone) { mFtChar=ftTotal(); mFtDone=true; }
-        else startPartySelect();
-    }
-
-    // ══════════════════════════════════════════════════════════════════════
-    //  PARTİ SEÇİM EKRANI
-    // ══════════════════════════════════════════════════════════════════════
-
-    private void startPartySelect() {
-        mPartyHover=-1; mPartyPress=-1; mState=ST_PARTY_SELECT;
-    }
-
-    private void renderPartySelect() {
-        int bgT = (mTexPartyBg > 0) ? mTexPartyBg : mTexMenuBg;
-        if (bgT > 0) {
-            drawTex(bgT, 0, 0, mW, mH, 0.55f);
-            float[] ov = {C_BG[0], C_BG[1], C_BG[2], 0.62f};
-            rect(0, 0, mW, mH, ov);
-        } else {
-            rect(0, 0, mW, mH, C_BG);
-        }
-        float cx = mW / 2f;
-        float tPS = fitTextPS("PARTINIZI SECIN", mUsableW*0.82f, gPS*1.2f);
-        drawStringC("PARTINIZI SECIN", mH*0.07f, tPS, C_GOLD);
-        float subPS = gPS*0.58f;
-        float[] subC = {C_GREY[0], C_GREY[1], C_GREY[2], 0.70f};
-        drawStringC("1999 - TURKIYE GENEL SECIMLER", mH*0.15f, subPS, subC);
-
-        float cardW = mUsableW*0.90f, cardH = mH*0.175f;
-        float cardX = cx - cardW/2f, gap = gPS*4f, startY = mH*0.23f;
-
-        for (int i = 0; i < PARTY_IDS.length; i++) {
-            float cardY = startY + i*(cardH+gap);
-            boolean hover   = (mPartyHover==i && PARTY_ACTIVE[i]);
-            boolean pressed = (mPartyPress==i && PARTY_ACTIVE[i]);
-            boolean locked  = !PARTY_ACTIVE[i];
-
-            // Kart zemin
-            float[] bgC = pressed ? C_PRES : (hover ? C_DARK : C_BG);
-            if (locked) bgC = new float[]{C_BG[0]*0.6f, C_BG[1]*0.6f, C_BG[2]*0.6f, 1f};
-            rect(cardX, cardY, cardW, cardH, bgC);
-
-            // Sol renkli şerit
-            float stripW = gPS*2.2f, sa = locked ? 0.25f : (hover ? 1.0f : 0.55f);
-            float[] sC = {
-                C_GOLD[0]*(1f-i*0.18f),
-                C_GOLD[1]*(1f-i*0.08f),
-                C_GOLD[2]*(0.4f+i*0.15f),
-                sa
-            };
-            rect(cardX, cardY, stripW, cardH, sC);
-
-            // Logo (varsa)
-            if (mTexPartyLogo[i] > 0) {
-                float logoS = cardH*0.65f;
-                float logoX = cardX + stripW + gPS*1.5f;
-                float logoY = cardY + cardH/2f - logoS/2f;
-                drawTex(mTexPartyLogo[i], logoX, logoY, logoS, logoS, locked ? 0.35f : 0.90f);
-            }
-
-            // Çerçeve
-            float b = Math.max(1.5f, gPS*0.35f);
-            float[] brdC = locked ? C_GREY : ((hover||pressed) ? C_GOLD : C_GDIM);
-            rect(cardX,          cardY,          cardW, b,     brdC);
-            rect(cardX,          cardY+cardH-b,  cardW, b,     brdC);
-            rect(cardX,          cardY,          b,     cardH, brdC);
-            rect(cardX+cardW-b,  cardY,          b,     cardH, brdC);
-
-            // Kısa ad
-            float logoSz = (mTexPartyLogo[i] > 0) ? cardH*0.65f + gPS*3f : 0f;
-            float idX  = cardX + stripW + logoSz + gPS*2f;
-            float idPS = gPS*0.80f;
-            float[] idC = locked ? C_GREY : (hover ? C_GOLD : C_GDIM);
-            drawString(PARTY_IDS[i], idX, cardY+gPS*1.5f, idPS, idC);
-
-            // Tam ad
-            float namePS = fitTextPS(PARTY_NAMES[i], (cardX+cardW-b)-idX-gPS*2f, gPS*0.62f);
-            float[] nameC = locked ? C_GREY : C_GOLD;
-            float nameX = idX + charWidth(PARTY_IDS[i], idPS) + gPS*2.5f;
-            drawString(PARTY_NAMES[i], nameX, cardY+gPS*1.5f, namePS, nameC);
-
-            // Slogan veya "Yakında"
-            float slogPS = gPS*0.50f;
-            float[] slogC = {C_GDIM[0], C_GDIM[1], C_GDIM[2], locked ? 0.40f : (hover ? 0.90f : 0.65f)};
-            String slogTxt = locked ? "YAKIN ZAMANDA..." : PARTY_SLOGANS[i];
-            drawString(slogTxt, nameX, cardY+gPS*1.5f+namePS*11f+gPS, slogPS, slogC);
-
-            // Kilit ikonu
-            if (locked) {
-                String lockStr = "[KILITLI]";
-                float lkPS = gPS*0.52f;
-                float lkW  = charWidth(lockStr, lkPS);
-                float[] lkC = {C_RED[0], C_RED[1], C_RED[2], 0.70f};
-                drawString(lockStr, cardX+cardW-b-lkW-gPS*2f, cardY+cardH/2f-lkPS*4.5f, lkPS, lkC);
-            }
-
-            // "SEC >" hover'da
-            if (hover && !locked) {
-                float aPS = gPS*0.60f;
-                String aStr = "SEC >";
-                float aW = charWidth(aStr, aPS);
-                drawString(aStr, cardX+cardW-b-aW-gPS*2f, cardY+cardH/2f-aPS*4.5f, aPS, C_GOLD);
-            }
-        }
-
-        float iPS = gPS*0.54f;
-        float[] iC = {C_GREY[0], C_GREY[1], C_GREY[2], 0.50f};
-        drawStringC("BIR PARTIYE DOKUN VE SEC", mH*0.88f, iPS, iC);
-
-        float backW = mUsableW*0.40f, backH = Math.max(gPS*8f, mH*0.054f);
-        float backX = cx - backW/2f, backY = mH*0.92f;
-        drawButton("GERI", backX, backY, backW, backH, false, false, false);
-        scanLines();
-    }
-
-    private void touchPartySelect(int action, float x, float y) {
-        float cx = mW/2f, cardW = mUsableW*0.90f, cardH = mH*0.175f;
-        float cardX = cx-cardW/2f, gap = gPS*4f, startY = mH*0.23f;
-        float backW = mUsableW*0.40f, backH = Math.max(gPS*8f, mH*0.054f);
-        float backX = cx-backW/2f, backY = mH*0.92f;
-        if (action == MotionEvent.ACTION_DOWN) {
-            mPartyPress = -1;
-            for (int i = 0; i < PARTY_IDS.length; i++) {
-                if (!PARTY_ACTIVE[i]) continue;
-                if (hit(x,y, cardX, startY+i*(cardH+gap), cardW, cardH))
-                    { mPartyPress=i; mPartyHover=i; return; }
-            }
-        } else if (action == MotionEvent.ACTION_MOVE) {
-            mPartyHover = -1;
-            for (int i = 0; i < PARTY_IDS.length; i++) {
-                if (!PARTY_ACTIVE[i]) continue;
-                if (hit(x,y, cardX, startY+i*(cardH+gap), cardW, cardH)) { mPartyHover=i; break; }
-            }
-        } else if (action == MotionEvent.ACTION_UP) {
-            int p = mPartyPress; mPartyPress=-1; mPartyHover=-1;
-            if (hit(x,y, backX,backY,backW,backH)) { mState=ST_MENU; return; }
-            if (p>=0 && PARTY_ACTIVE[p] && hit(x,y, cardX, startY+p*(cardH+gap), cardW, cardH))
-                startGameWithParty(p);
-        }
-    }
-
-    // ══════════════════════════════════════════════════════════════════════
-    //  YAKINDA EKRANI
-    // ══════════════════════════════════════════════════════════════════════
-
-    private void renderComingSoon() {
-        rect(0, 0, mW, mH, C_BG);
-        float cx = mW / 2f;
-        float[] lineC = {C_GDIM[0], C_GDIM[1], C_GDIM[2], 0.40f};
-        rect(mPad*2f, mH*0.18f, mUsableW-mPad*2f, Math.max(1f, gPS*0.3f), lineC);
-        rect(mPad*2f, mH*0.82f, mUsableW-mPad*2f, Math.max(1f, gPS*0.3f), lineC);
-
-        float tPS = fitTextPS("YAKIN ZAMANDA", mUsableW*0.80f, gPS*1.3f);
-        drawStringC("YAKIN ZAMANDA", mH*0.10f, tPS, C_GOLD);
-
-        // Parti logosu (varsa)
-        int logoIdx = -1;
-        for (int i = 0; i < PARTY_IDS.length; i++)
-            if (PARTY_IDS[i].equals(mComingSoonParty)) { logoIdx=i; break; }
-        if (logoIdx >= 0 && mTexPartyLogo[logoIdx] > 0) {
-            float ls = mW*0.22f;
-            drawTex(mTexPartyLogo[logoIdx], cx-ls/2f, mH*0.22f, ls, ls, 0.35f);
-        }
-
-        float pPS = gPS*0.90f;
-        drawStringC(mComingSoonParty, mH*0.36f, pPS, C_GDIM);
-
-        String[] lines = {
-            "Bu parti icin senaryo",
-            "henuz tamamlanmadi.",
-            "",
-            "Ilerleyen surumlerde",
-            "oynanabilir hale gelecek."
-        };
-        float bodyPS = gPS*0.72f, bodyY = mH*0.44f;
-        for (int i = 0; i < lines.length; i++)
-            drawStringC(lines[i], bodyY + i*bodyPS*11.5f, bodyPS, C_GOLD);
-
-        float bw = mUsableW*0.55f, bh = Math.max(gPS*9f, mH*0.058f);
-        drawButton("GERI DON", cx-bw/2f, mH*0.86f, bw, bh, false, false, false);
-
-        float[] vC = {C_GREY[0], C_GREY[1], C_GREY[2], 0.40f};
-        drawStringC("v0.2.0", mH*0.95f, gPS*0.52f, vC);
-        scanLines();
-    }
-
-    private void touchComingSoon(int action) {
-        if (action == MotionEvent.ACTION_UP) startPartySelect();
-    }
-
-    // ══════════════════════════════════════════════════════════════════════
-    //  OYUN BAŞLATMA
-    // ══════════════════════════════════════════════════════════════════════
-
-    private void startGameWithParty(int party) {
-        if (!PARTY_ACTIVE[party]) {
-            mComingSoonParty = PARTY_NAMES[party];
-            mState = ST_COMING_SOON;
-            return;
-        }
-        mGameState.sifirla();
-        mGameState.partyChoice = party;
-        String folder = "scenario/" + mGameState.getScenarioFolder();
-        mEngine.loadScenario(folder + "/cards.json");
-        mEngine.loadEndings(folder + "/endings.json");
-        mEngine.startScenario(mGameState);
-        mCardSwipeX=0f; mCardSwiping=false; mTouchAction=-1;
-        mState = ST_GAME;
-    }
-
-    // ══════════════════════════════════════════════════════════════════════
-    //  OYUN — KART EKRANI
-    // ══════════════════════════════════════════════════════════════════════
-
-    private void renderGame() {
-        int bgTex = (mGameState.gamePhase == GameState.PHASE_RULING) ? mTexGovBg : mTexOppBg;
-        if (bgTex > 0) {
-            drawTex(bgTex, 0, 0, mW, mH, 0.65f);
-            float[] ov = {C_BG[0], C_BG[1], C_BG[2], 0.55f};
-            rect(0, 0, mW, mH, ov);
-        } else {
-            rect(0, 0, mW, mH, C_BG);
-        }
-
-        float barAreaY = mPad*1.2f, barAreaH = mH*0.10f;
-        drawStatBars(barAreaY, barAreaH);
-
-        ScenarioEngine.Card card = mEngine.getCurrentCard();
-        if (card == null) {
-            if (!mGameState.oyunBitti) triggerElectionScreen();
-            scanLines();
-            return;
-        }
-        syncCardEffects(card);
-
-        float cardW = mUsableW*0.88f, cardH = mH*0.54f;
-        float cardCX = mW/2f - cardW/2f, cardCY = mH*0.20f;
-        float absSwipe = Math.abs(mCardSwipeX), tiltOff = mCardSwipeX*0.07f;
-        float cardX = cardCX + mCardSwipeX;
-
-        // Gölge
-        float[] shC = {0f, 0f, 0f, 0.28f};
-        rect(cardX+gPS, cardCY+tiltOff+gPS, cardW, cardH, shC);
-
-        // Kart arka plan + karakter görseli
-        rect(cardX, cardCY+tiltOff, cardW, cardH, C_DARK);
-        drawCardCharacter(card.character, cardX, cardCY+tiltOff, cardW, cardH);
-
-        // Çerçeve
-        float[] frameCol = (absSwipe > mW*0.05f) ? ((mCardSwipeX>0) ? C_GOLD : C_GDIM) : C_GDIM;
-        float b = Math.max(1.5f, gPS*0.4f);
-        rect(cardX,         cardCY+tiltOff,        cardW, b,     frameCol);
-        rect(cardX,         cardCY+tiltOff+cardH-b,cardW, b,     frameCol);
-        rect(cardX,         cardCY+tiltOff,        b,     cardH, frameCol);
-        rect(cardX+cardW-b, cardCY+tiltOff,        b,     cardH, frameCol);
-
-        // İç içerik
-        float innerX = cardX + gPS*3f, innerW = cardW - gPS*6f;
-        float innerY = cardCY + tiltOff + gPS*2.5f;
-
-        // Karakter etiketi
-        float charPS = gPS*0.56f;
-        float[] dimC = {C_GREY[0], C_GREY[1], C_GREY[2], 0.80f};
-        drawString(card.character.replace("_"," ").toUpperCase(), innerX, innerY, charPS, dimC);
-
-        // Ayırıcı
-        float divY = innerY + charPS*10f + gPS*0.5f;
-        float[] lineC2 = {C_GDIM[0], C_GDIM[1], C_GDIM[2], 0.45f};
-        rect(innerX, divY, innerW, Math.max(1f, gPS*0.25f), lineC2);
-
-        // Flavor
-        float flavPS = gPS*0.60f;
-        float[] flavC = {C_GDIM[0], C_GDIM[1], C_GDIM[2], 0.75f};
-        List<String> fLines = wrapText(card.flavor, innerW, flavPS);
-        float flavY = divY + gPS*1.5f;
-        for (int i = 0; i < Math.min(fLines.size(), 2); i++)
-            drawString(fLines.get(i), innerX, flavY+i*flavPS*11f, flavPS, flavC);
-
-        // Ana metin
-        float textPS = gPS*0.72f;
-        float textY = flavY + Math.min(fLines.size(),2)*flavPS*11f + gPS*2f;
-        List<String> tLines = wrapText(card.text, innerW, textPS);
-        for (int i = 0; i < Math.min(tLines.size(), 6); i++)
-            drawString(tLines.get(i), innerX, textY+i*textPS*11f, textPS, C_GOLD);
-
-        // EVET / HAYIR etiketi
-        if (absSwipe > mW*0.04f) {
-            boolean goRight = (mCardSwipeX > 0);
-            String lbl = goRight ? "EVET" : "HAYIR";
-            float la = Math.min(1f, absSwipe / (mW*0.14f));
-            float[] lc = goRight
-                ? new float[]{C_GOLD[0],C_GOLD[1],C_GOLD[2],la}
-                : new float[]{C_GDIM[0],C_GDIM[1],C_GDIM[2],la};
-            float lPS = fitTextPS(lbl, cardW*0.55f, gPS*2.0f);
-            float lW  = charWidth(lbl, lPS);
-            float lX  = mW/2f - lW/2f + mCardSwipeX*0.3f;
-            float lY  = cardCY + cardH*0.40f + tiltOff;
-            float pad = gPS*2.5f;
-            float[] boxC = {C_BG[0], C_BG[1], C_BG[2], la*0.80f};
-            rect(lX-pad, lY-pad, lW+pad*2f, lPS*10f+pad*2f, boxC);
-            float bl2 = Math.max(1f, gPS*0.35f);
-            rect(lX-pad, lY-pad,               lW+pad*2f, bl2,         lc);
-            rect(lX-pad, lY+lPS*10f+pad-bl2,   lW+pad*2f, bl2,         lc);
-            rect(lX-pad, lY-pad,               bl2,       lPS*10f+pad*2f, lc);
-            rect(lX+lW+pad-bl2, lY-pad,        bl2,       lPS*10f+pad*2f, lc);
-            drawString(lbl, lX, lY, lPS, lc);
-            drawBarHintDots(goRight, barAreaY, barAreaH);
-        }
-
-        // Yön okları
-        if (!mCardSwiping) {
-            float[] arC = {C_GDIM[0], C_GDIM[1], C_GDIM[2], 0.40f};
-            float arPS = gPS*0.65f;
-            drawString("<", mPad, mH*0.46f, arPS, arC);
-            drawString(">", mW-mPad-charWidth(">",arPS), mH*0.46f, arPS, arC);
-        }
-
-        // Seçenek etiketleri (kart altı)
-        float optY = cardCY + cardH + gPS*3f, optPS = gPS*0.58f;
-        float[] lOptC = {(mCardSwipeX<0)?C_GOLD[0]:C_GDIM[0],
-                         (mCardSwipeX<0)?C_GOLD[1]:C_GDIM[1],
-                         (mCardSwipeX<0)?C_GOLD[2]:C_GDIM[2], 1f};
-        float[] rOptC = {(mCardSwipeX>0)?C_GOLD[0]:C_GDIM[0],
-                         (mCardSwipeX>0)?C_GOLD[1]:C_GDIM[1],
-                         (mCardSwipeX>0)?C_GOLD[2]:C_GDIM[2], 1f};
-        drawString("< "+card.choiceLeft.label, mPad, optY, optPS, lOptC);
-        String rStr = card.choiceRight.label+" >";
-        drawString(rStr, mW-mPad-charWidth(rStr,optPS), optY, optPS, rOptC);
-
-        // Menü butonu (sağ üst)
-        float mBw = mUsableW*0.25f, mBh = Math.max(gPS*7f, mH*0.045f);
-        float mBx = mW-mPad-mBw, mBy = mPad*0.5f;
-        drawButton("MENU", mBx, mBy, mBw, mBh, false, false, false);
-
-        renderStatusBar();
-        scanLines();
-    }
-
-    private void drawCardCharacter(String charId, float cardX, float cardY,
-                                   float cardW, float cardH) {
-        int texIdx = -1;
-        for (int i = 0; i < CHAR_NAMES.length; i++)
-            if (CHAR_NAMES[i].equals(charId)) { texIdx=i; break; }
-        if (texIdx < 0 || mTexChar[texIdx] <= 0) return;
-        float charH = cardH*0.82f;
-        float charW = charH*0.65f;
-        float charX = cardX + cardW - charW - gPS;
-        float charY = cardY + cardH*0.09f;
-        drawTex(mTexChar[texIdx], charX, charY, charW, charH, 0.18f);
-    }
-
-    private void syncCardEffects(ScenarioEngine.Card card) {
-        mCardEffectLeft  = new int[]{ card.choiceLeft.halk,  card.choiceLeft.din,
-                                      card.choiceLeft.para,  card.choiceLeft.ordu  };
-        mCardEffectRight = new int[]{ card.choiceRight.halk, card.choiceRight.din,
-                                      card.choiceRight.para, card.choiceRight.ordu };
-    }
-
-    private void triggerElectionScreen() {
-        mElectionResult = mGameState.getElectionResult();
-        mElectionScore  = mGameState.getElectionScore();
-        mState = ST_ELECTION;
-    }
-
-    private void touchGame(int action, float x, float y) {
-        float cardW = mUsableW*0.88f, cardH = mH*0.54f;
-        float cardX0 = mW/2f-cardW/2f, cardY0 = mH*0.20f;
-        float threshold = mW*0.27f;
-        float mBw = mUsableW*0.25f, mBh = Math.max(gPS*7f, mH*0.045f);
-        float mBx = mW-mPad-mBw, mBy = mPad*0.5f;
-        if (action == MotionEvent.ACTION_UP && hit(x,y, mBx,mBy,mBw,mBh)) {
-            mCardSwipeX=0f; mCardSwiping=false; mState=ST_MENU; return;
-        }
-        switch (action) {
-            case MotionEvent.ACTION_DOWN:
-                if (hit(x,y, cardX0,cardY0,cardW,cardH))
-                    { mCardSwiping=true; mCardSwipeStartX=x; mCardSwipeX=0f; }
-                break;
-            case MotionEvent.ACTION_MOVE:
-                if (mCardSwiping) mCardSwipeX = x - mCardSwipeStartX;
-                break;
-            case MotionEvent.ACTION_UP:
-            case MotionEvent.ACTION_CANCEL:
-                if (mCardSwiping) {
-                    if      (mCardSwipeX >  threshold) onCardChosen(true);
-                    else if (mCardSwipeX < -threshold) onCardChosen(false);
-                    mCardSwipeX=0f; mCardSwiping=false;
+    private void loadIntroFromAssets() {
+        try {
+            InputStream is = mAssets.open("scenario/Opposition_1/intro.md");
+            byte[] buf = new byte[is.available()];
+            is.read(buf); is.close();
+            String raw = new String(buf, "UTF-8");
+            List<String> texts = new ArrayList<>(), assets = new ArrayList<>();
+            for (String block : raw.split("(?m)^---\\s*$")) {
+                block = block.trim();
+                if (!block.contains("[INTRO-")) continue;
+                String bg = ""; StringBuilder sc = new StringBuilder();
+                for (String line : block.split("\n")) {
+                    String t = line.trim();
+                    if (t.startsWith("`bg:")) {
+                        bg = t.replace("`bg:","").replace("`","").trim(); continue;
+                    }
+                    if (t.startsWith("**[INTRO-") || t.startsWith("#") || t.isEmpty()) continue;
+                    if (!bg.isEmpty()) { if (sc.length()>0) sc.append("\n"); sc.append(t); }
                 }
-                break;
-        }
-    }
-
-    private void onCardChosen(boolean right) {
-        mEngine.choose(mGameState, right);
-        if (mGameState.oyunBitti) {
-            ScenarioEngine.Ending e = mEngine.getEnding(mGameState);
-            mEndingTitle = (e != null) ? e.title : "OYUN BITTI";
-            mEndingBody  = (e != null) ? e.body  : "";
-            mEndingChar=0; mEndingLast=System.currentTimeMillis(); mEndingDone=false;
-            mState = ST_ENDING;
-        } else if (mEngine.isScenarioComplete()) {
-            mComingSoonParty = PARTY_NAMES[mGameState.partyChoice] + " - PERDE 2+";
-            mState = ST_COMING_SOON;
-        }
-    }
-
-    // ── Stat barları ──────────────────────────────────────────────────────
-
-    private void drawStatBars(float areaY, float areaH) {
-        int bc = BAR_LABELS.length;
-        float slotW = mUsableW / (float) bc;
-        float barH  = Math.max(4f, gPS*1.4f);
-        float labPS = gPS*0.52f, barY = areaY+areaH*0.50f, labY = areaY+areaH*0.02f;
-        int[] vals = {mGameState.halk, mGameState.din, mGameState.para, mGameState.ordu};
-        for (int i = 0; i < bc; i++) {
-            float bx = mPad + i*slotW, bw = slotW*0.84f;
-            int v = vals[i], d = mGameState.getDangerLevel(v);
-            float[] fC = (d==2) ? C_DANGER : (d==1) ? C_WARN : C_GOLD;
-            rect(bx, barY, bw, barH, C_DARK);
-            float fill = (v/100f)*bw;
-            if (fill > 0) rect(bx, barY, fill, barH, fC);
-            float bl = Math.max(1f, gPS*0.2f);
-            float[] frC = {fC[0], fC[1], fC[2], 0.55f};
-            rect(bx,     barY,        bw, bl,   frC);
-            rect(bx,     barY+barH-bl,bw, bl,   frC);
-            rect(bx,     barY,        bl, barH,  frC);
-            rect(bx+bw-bl,barY,       bl, barH,  frC);
-            float[] lC = (d>0) ? fC : C_GDIM;
-            float lw = charWidth(BAR_LABELS[i], labPS);
-            drawString(BAR_LABELS[i], bx+bw/2f-lw/2f, labY, labPS, lC);
-            if (d > 0) {
-                String ns = String.valueOf(v);
-                float nPS = labPS*0.85f;
-                float[] nC = {fC[0], fC[1], fC[2], 0.90f};
-                drawString(ns, bx+bw/2f-charWidth(ns,nPS)/2f, barY+barH+gPS*0.5f, nPS, nC);
+                if (!bg.isEmpty() && sc.length()>0) { assets.add(bg); texts.add(sc.toString()); }
             }
+            mCinemaText   = texts.toArray(new String[0]);
+            mCinemaAssets = assets.toArray(new String[0]);
+        } catch (Exception e) {
+            mCinemaText   = new String[0];
+            mCinemaAssets = new String[0];
         }
-    }
-
-    private void drawBarHintDots(boolean goRight, float areaY, float areaH) {
-        int[] eff = goRight ? mCardEffectRight : mCardEffectLeft;
-        int bc = BAR_LABELS.length;
-        float slotW = mUsableW / (float) bc, barY = areaY + areaH*0.50f;
-        float dotR = Math.max(gPS*1.5f, 4f);
-        for (int i = 0; i < bc && i < eff.length; i++) {
-            if (eff[i] == 0) continue;
-            float bx = mPad + i*slotW, bw = slotW*0.84f;
-            float dcx = bx + bw/2f, dcy = barY - dotR*2.4f;
-            float[] db = (eff[i]>0) ? C_GOLD : C_GDIM;
-            float al = 0.60f + 0.40f*(float)Math.sin(mFrame*0.17f);
-            float[] bC = {db[0], db[1], db[2], al};
-            rect(dcx-dotR, dcy-dotR, dotR*2f, dotR*2f, bC);
-            String sign = (eff[i]>0) ? "+" : "-";
-            float sPS = gPS*0.44f;
-            drawString(sign, dcx-charWidth(sign,sPS)/2f, dcy-sPS*5f, sPS, bC);
-        }
-    }
-
-    private void renderStatusBar() {
-        float bY = mH*0.91f, bH = mH - bY;
-        float[] sC = {C_GDIM[0], C_GDIM[1], C_GDIM[2], 0.28f};
-        rect(0, bY - Math.max(1f,gPS*0.25f), mW, Math.max(1f,gPS*0.25f), sC);
-        rect(0, bY, mW, bH, C_DARK);
-        float ps = gPS*0.54f;
-        String yr = "YIL " + mGameState.year;
-        String ac = "PERDE " + mGameState.currentAct;
-        String ti = mGameState.getTitle();
-        drawString(yr, mPad, bY+gPS*0.8f, ps, C_GOLD);
-        float aw = charWidth(ac, ps);
-        drawString(ac, mW/2f-aw/2f, bY+gPS*0.8f, ps, C_GDIM);
-        float tw = charWidth(ti, ps);
-        drawString(ti, mW-mPad-tw, bY+gPS*0.8f, ps, C_GREY);
-    }
-
-    // ══════════════════════════════════════════════════════════════════════
-    //  FELAKET SONU
-    // ══════════════════════════════════════════════════════════════════════
-
-    private void updateEnding() {
-        if (mEndingDone) return;
-        long now = System.currentTimeMillis();
-        String full = mEndingTitle + "\n\n" + mEndingBody;
-        if (now - mEndingLast >= ENDING_CHAR_MS) {
-            mEndingLast = now;
-            if (mEndingChar < full.length()) mEndingChar++;
-            else mEndingDone = true;
-        }
-    }
-
-    private void renderEnding() {
-        rect(0, 0, mW, mH, C_BG);
-        float cx = mW / 2f;
-        String full = mEndingTitle + "\n\n" + mEndingBody;
-        String vis  = full.substring(0, Math.min(mEndingChar, full.length()));
-        String[] parts = vis.split("\n", 2);
-        String tVis = parts[0];
-        String bVis = (parts.length > 1) ? parts[1].replaceFirst("^\n", "") : "";
-        float tPS = fitTextPS(tVis.isEmpty() ? "X" : tVis, mUsableW*0.80f, gPS*1.3f);
-        drawStringC(tVis, mH*0.10f, tPS, C_GOLD);
-        rect(mPad*2f, mH*0.10f+tPS*10f+gPS, mUsableW-mPad*2f, Math.max(1f,gPS*0.3f), C_GDIM);
-        float bPS = gPS*0.70f, bY = mH*0.10f + tPS*10f + gPS*4f;
-        List<String> bLines = wrapText(bVis, mUsableW*0.86f, bPS);
-        for (int i = 0; i < bLines.size(); i++)
-            drawStringC(bLines.get(i), bY + i*bPS*11.5f, bPS, C_GOLD);
-        if (!mEndingDone && (mFrame/15)%2 == 0)
-            rect(cx, bY + bLines.size()*bPS*11.5f, bPS, bPS*8f, C_GOLD);
-        if (mEndingDone) {
-            float bh = Math.max(gPS*8f, mH*0.056f);
-            float bw1 = mUsableW*0.44f, bw2 = mUsableW*0.44f, gap = gPS*3f, by = mH*0.84f;
-            float bx1 = cx-gap/2f-bw1, bx2 = cx+gap/2f;
-            drawButton("YENIDEN",  bx1, by, bw1, bh, false, false, false);
-            drawButton("ANA MENU", bx2, by, bw2, bh, false, false, false);
-            if (mTouchAction == MotionEvent.ACTION_UP) {
-                if      (hit(mTouchX,mTouchY, bx1,by,bw1,bh)) {
-                    startGameWithParty(mGameState.partyChoice); mTouchAction=-1;
-                } else if (hit(mTouchX,mTouchY, bx2,by,bw2,bh)) {
-                    mGameState.sifirla(); mState=ST_MENU; mTouchAction=-1;
-                }
-            }
-        }
-        scanLines();
-    }
-
-    private void touchEnding(int action) {
-        if (action == MotionEvent.ACTION_DOWN && !mEndingDone) {
-            mEndingChar = (mEndingTitle + "\n\n" + mEndingBody).length();
-            mEndingDone = true;
-        }
-    }
-
-    // ══════════════════════════════════════════════════════════════════════
-    //  SEÇİM SONUCU
-    // ══════════════════════════════════════════════════════════════════════
-
-    private void renderElection() {
-        rect(0, 0, mW, mH, C_BG);
-        float cx = mW / 2f;
-        float tPS = fitTextPS("SECIM GECESI", mUsableW*0.80f, gPS*1.2f);
-        drawStringC("SECIM GECESI", mH*0.10f, tPS, C_GOLD);
-        String scStr = "HALK DESTEGI: %" + mElectionScore;
-        drawStringC(scStr, mH*0.24f, gPS*0.80f, C_GDIM);
-
-        String pName = mGameState.getPartyDisplayName();
-        String rStr; float[] rC; String sub;
-        if (mElectionResult == GameState.ELECTION_WIN) {
-            rStr = "KAZANDINIZ"; rC = C_GOLD;
-            sub  = pName + " birinci parti. Koalisyon gorusmeleri basliyor.";
-        } else if (mElectionResult == GameState.ELECTION_TIE) {
-            rStr = "IKINCI TUR"; rC = C_WARN;
-            sub  = "Secim ikinci tura gitti. Uc gun sonra karar.";
-        } else {
-            rStr = "KAYBETTINIZ"; rC = C_DANGER;
-            sub  = pName + " ucuncu parti. Muhalefette devam.";
-        }
-        float rPS = fitTextPS(rStr, mUsableW*0.75f, gPS*1.6f);
-        drawStringC(rStr, mH*0.36f, rPS, rC);
-        drawStringCWrapped(sub, mH*0.50f, gPS*0.65f, C_GDIM);
-
-        if (mElectionResult == GameState.ELECTION_WIN) {
-            float bigBw = mUsableW*0.72f, bigBh = Math.max(gPS*9f, mH*0.060f);
-            drawButton("IKTIDARA GEC", cx-bigBw/2f, mH*0.64f, bigBw, bigBh, false, false, false);
-        }
-
-        float bh = Math.max(gPS*8f, mH*0.056f), bw = mUsableW*0.44f, gap = gPS*3f, by = mH*0.76f;
-        float bx1 = cx-gap/2f-bw, bx2 = cx+gap/2f;
-        drawButton("YENIDEN",  bx1, by, bw, bh, false, false, false);
-        drawButton("ANA MENU", bx2, by, bw, bh, false, false, false);
-        scanLines();
-    }
-
-    private void touchElection(int action, float x, float y) {
-        if (action != MotionEvent.ACTION_UP) return;
-        float cx = mW/2f, bh = Math.max(gPS*8f, mH*0.056f), bw = mUsableW*0.44f, gap = gPS*3f, by = mH*0.76f;
-        float bx1 = cx-gap/2f-bw, bx2 = cx+gap/2f;
-        if (mElectionResult == GameState.ELECTION_WIN) {
-            float bigBw = mUsableW*0.72f, bigBh = Math.max(gPS*9f, mH*0.060f);
-            if (hit(x,y, cx-bigBw/2f, mH*0.64f, bigBw, bigBh)) {
-                mComingSoonParty = "IKTIDAR EVRESI";
-                mState = ST_COMING_SOON;
-                return;
-            }
-        }
-        if      (hit(x,y, bx1,by,bw,bh)) startGameWithParty(mGameState.partyChoice);
-        else if (hit(x,y, bx2,by,bw,bh)) { mGameState.sifirla(); mState=ST_MENU; }
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -1345,36 +1602,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
         GLES20.glGetShaderiv(s, GLES20.GL_COMPILE_STATUS, ok, 0);
         if (ok[0] == 0) throw new RuntimeException(GLES20.glGetShaderInfoLog(s));
         return s;
-    }
-
-    private void loadIntroFromAssets() {
-        try {
-            // KRİTİK: "scenario/" ile başla, "src/" yok
-            InputStream is = mAssets.open("scenario/Opposition_1/intro.md");
-            byte[] buf = new byte[is.available()];
-            is.read(buf); is.close();
-            String raw = new String(buf, "UTF-8");
-            List<String> texts = new ArrayList<>(), assets = new ArrayList<>();
-            for (String block : raw.split("(?m)^---\\s*$")) {
-                block = block.trim();
-                if (!block.contains("[INTRO-")) continue;
-                String bg = ""; StringBuilder sc = new StringBuilder();
-                for (String line : block.split("\n")) {
-                    String t = line.trim();
-                    if (t.startsWith("`bg:")) {
-                        bg = t.replace("`bg:","").replace("`","").trim(); continue;
-                    }
-                    if (t.startsWith("**[INTRO-") || t.startsWith("#") || t.isEmpty()) continue;
-                    if (!bg.isEmpty()) { if (sc.length()>0) sc.append("\n"); sc.append(t); }
-                }
-                if (!bg.isEmpty() && sc.length()>0) { assets.add(bg); texts.add(sc.toString()); }
-            }
-            mCinemaText   = texts.toArray(new String[0]);
-            mCinemaAssets = assets.toArray(new String[0]);
-        } catch (Exception e) {
-            mCinemaText   = new String[0];
-            mCinemaAssets = new String[0];
-        }
     }
 
     private boolean hit(float px, float py, float rx, float ry, float rw, float rh) {
@@ -1459,6 +1686,7 @@ public class GameRenderer implements GLSurfaceView.Renderer {
 
     private List<String> wrapText(String text, float maxW, float ps) {
         List<String> r = new ArrayList<>();
+        if (text == null || text.isEmpty()) return r;
         for (String para : text.split("\n", -1)) {
             if (para.isEmpty()) { r.add(""); continue; }
             String[] words = para.split(" ");
@@ -1480,19 +1708,6 @@ public class GameRenderer implements GLSurfaceView.Renderer {
     private void drawString(String s, float x, float y, float ps, float[] c) {
         float cx = x;
         for (int i = 0; i < s.length(); i++) { drawChar(s.charAt(i), cx, y, ps, c); cx += ps*8f; }
-    }
-
-    private char trUpper(char ch) {
-        switch (ch) {
-            case 'i':    return '\u0130';
-            case '\u0131': return 'I';
-            case '\u00FC': return '\u00DC';
-            case '\u00F6': return '\u00D6';
-            case '\u00E7': return '\u00C7';
-            case '\u015F': return '\u015E';
-            case '\u011F': return '\u011E';
-            default: return Character.toUpperCase(ch);
-        }
     }
 
     private void drawStringC(String s, float y, float ps, float[] c) {
