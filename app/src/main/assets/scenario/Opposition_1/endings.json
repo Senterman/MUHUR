@@ -1,53 +1,54 @@
 {
-  "scenario": "Opposition_1",
+  "scenario": "Opposition_2",
+  "party": "MNP",
   "endings": [
 
     {
       "key": "halk_0",
-      "title": "İSYAN GÜNÜ",
-      "body": "Sabah gazetesi masanıza düşüyor.\nBirinci sayfa: Sizin fotoğrafınız.\nAltında başlık: HALK DÜŞMANI.\n\nBu başlığı siz yazacaktınız aslında. Başkaları için.\n\nSokaklar kapalı. Binaya giremiyorsunuz.\nGüvenlik görevlisi kapıda 'Talimat var' diyor, gözlerini kaçırarak.\n\nLeyla Hanım telefon açıyor:\n'İstifa metnini yazdım. İmzalamanız gerekiyor.\nGüzel yazdım, okuması kolay.'\n\nSiz de güzel yazıyordunuz bir zamanlar."
+      "title": "TERKEDILDИНIZ",
+      "body": "Sabah namazindan sonra telefon aciyorsunuz.\nKimse cevap vermiyor.\n\nNureddin Efendi dun aksam istifa etti.\nAciklama yapmadi. Sadece gitti.\n\nAli Amca dun sokakta gordugunuzde\n'Hay hayir oglum' dedi ve dondu.\nO donuste her sey vardi.\n\nMehmet geldi, dosyayla.\nDosyada istifa mektubunuz vardi.\nHazirlanmisti zaten.\n'Imzalayin' dedi.\n'Guzel yazmislar' dedim.\n'Onlar yazmadi' dedi Mehmet.\n'Biz yazdik.'"
     },
 
     {
       "key": "halk_100",
-      "title": "DEMAGOG",
-      "body": "Bir şey fark etmediniz.\n\nKalabalık 'evet' demeye başladığında ne zaman duracağını bilmiyordu.\nSiz de söylemek için durdurmadınız.\n\nŞimdi her cümlenizde 'haklısınız' diyorlar.\nHer kararınız alkışlanıyor.\nYanlış kararlar da.\n\nMehmet bugün gelmiyor. Dün de gelmedi.\n'Müfettiş Mehmet istifa etti' diyor Leyla.\n'Neden?'\n'Çünkü sizi uyarmak için buraya geliyordu.\nAma artık kimse uyarmak istemiyor sizi.'\n\nKalabalık dışarıda bekliyor.\n'Söylüyorlar' diyorlar. 'Söyle.'\n\nSen de söylüyorsun."
+      "title": "KALABALIK TANRIYI UNUTTURUR",
+      "body": "Miting alaninda 200 bin kisi.\n\nNureddin Efendi kulaginiza egildi:\n'Artik ne soylerseniz olur.'\n\nBu cumle sizi uyandirmasi gerekirdi.\nUyandirmadi.\n\nSonraki mitingde 300 bin oldu.\nSonrakinde daha fazla.\n\nBir sabah aynaya baktiniz.\nKendi sesiniizi duydunuz:\n'Ben hakliyim.'\n\nO gun en tehlikeli adam oldunuz.\nCunku halk da hakliydiniz dedi.\nVe halk hic yanilmaz.\n\nYanilir."
     },
 
     {
       "key": "ordu_0",
-      "title": "DARBE — PENCEREDEN DÜŞERKEN",
-      "body": "Sabah 04:47.\n\nTelefon çalıyor. General Rıfat değil.\nDaha genç bir ses. 'Durum bildirimi.'\n\nBu cümle hiç iyi başlamaz.\n\nTank sesi geliyor mu diye pencereye gidiyorsunuz.\nSokak normal görünüyor.\nAma sokaklar her zaman normalmiş gibi görünür.\nSonra tanklar çıkıyor.\n\nBay X önceden söylemişti.\n'Dikkatli olun' demişti.\nSiz pencereye baktınız.\n\nTanrım, sokak gerçekten normal görünüyordu."
+      "title": "SABAH 04:17",
+      "body": "Telefon caldi.\nGeneral Rifat degil.\nDaha genc bir ses.\n'Durum bildirimi.'\n\nBu iki kelime hic iyi baslamaz.\n\nPencereye gittiniz.\nSokak bombostu.\nSonra boyle degildi.\n\nBay X onceden soyleмisti:\n'Dikkatli olun.'\nSiz dini vecibelerinizi yerine getiriyordunuz.\n\nTanri korudu mu?\n\nHayir.\nTanri ozgurlugu insana birakti.\nVe o sabah ozgurlugunu kullananlar\nsizin binanin onundeydi."
     },
 
     {
       "key": "ordu_100",
-      "title": "CUNTA GÜLÜMSÜYOR",
-      "body": "General Rıfat bugün gülümsüyor.\n\nİlk kez görüyorsunuz bunu.\nBiraz ürkütücü.\n\n'Siz çok iyi çalıştınız' diyor.\n'Bizimle çok iyi çalıştınız.\nBu ülke böyle yönetilmeli zaten.'\n\nSonra bir şey fark ediyorsunuz:\nMasanızdaki kalemler değişmiş.\nYeniler daha ağır, daha resmi.\n\n'Artık ne imzalamanızı söylersek o olacak' diyor General.\n'Ve siz imzalayacaksınız.\nÇünkü bu ülkede herkes bir yerde imzalamasını biliyor.'\n\nMasaya bakıyorsunuz.\nKalemler gerçekten çok ağır."
+      "title": "GENERAL SELAMLADI",
+      "body": "General Rifat bugün gülümsüyor.\n\nBu onun ikinci gulusmus.\nIlkini hic gormediniz.\nIkincisinde anliyorsunuz:\nIlkini gormemeniz iyi olmustu.\n\n'Birlikte calisacagiz' diyor.\n'Siz halk, biz duzen.'\n\nSonra bir kagit uzatiyor.\n'Bu kararnameyi imzalayin.'\nIcini okuyorsunuz.\nIcinde 'milli guvenlik' var.\nIcinde 'gerekli tedbirler' var.\nIcinde sizin isminiz var.\n\n'Ya imzalamazsam?'\nGeneral gene gulumsedi.\n\nUcuncu gulusu bu.\nArtik anliyorsunuz\nne anlama geldigini."
     },
 
     {
       "key": "din_0",
-      "title": "LAİK İSYAN",
-      "body": "Atatürk posteri taşıyan öğrenciler sabahtan beri kapı önündeler.\nZeynep de aralarında.\n\n'Sen de mi?' diye soruyorsunuz.\n'Sen de mi?' diye soruyor Zeynep.\n\nİkinci soruya cevap veremiyorsunuz.\n\nLeyla Hanım telefon açıyor:\n'Üç şehirde gösterimiz var, hepsi aleyhimize.\nMitinglere kendi insanlarımız katılıyor.\nNasıl böyle oldu?'\n\nNasıl oldu?\n\nYavaş yavaş. Sonra birden.\nHemingway'in iflas etmesi gibi."
+      "title": "LAİK SABAH",
+      "body": "Universiteli gencler sabahtan beri onunuzdeler.\nAralarinda Zeynep de var.\nOnunuzdeler ama Zeynep'i tanimiyorsunuz.\n\nBu garip.\n\nLeyla Hanim telefon acti:\n'Uc sehirde protesto var. Hepsi bizim aleyhimize.\nKatilimcilarin yarisi... bizim eski destekciLerimiz.'\n\nNureddin Efendi gelmedi bugün.\nYarin da gelmeyecek.\nBir gun gelecek ama konusmayacak.\n\nSusmak bazen en guclu cevaptir.\nVe susmak bazen en agir ceza."
     },
 
     {
       "key": "din_100",
       "title": "FETVA GELİYOR",
-      "body": "Nureddin Efendi artık her sabah burada.\n\nToplantı öncesi 'bir kısa dua' istiyor.\nToplantı sonrası 'bir hatırlatma' yapıyor.\nHatırlatmalar artık emirlere benziyor.\n\nBugün farklı bir kağıt getirdi.\n'Bu açıklamayı okuyun lütfen.\nHalkımız bekliyor.'\n\nAçıklamayı okuyorsunuz.\nİçinde sizin adınız var ama sizin kelimeleriniz yok.\n\n'Ben bunu yazmadım' diyorsunuz.\n'Evet' diyor Nureddin Efendi.\n'Biz yazdık.'\n\nTespih tıkırtıları devam ediyor.\nSanki hiçbir şey olmamış gibi."
+      "body": "Nureddin Efendi artik her sabah burada.\nHer toplantinin basinda bir sure.\nHer toplantinin sonunda bir hatirlatma.\n\nHatirlatmalar artik emirlere benziyor.\n\nBugün farkli bir kagit getirdi.\n'Bunu okuyun halka.'\nOkudunuz.\nIcinde sizin isminiz vardi.\nSizin kelimeleriniz yoktu.\n\n'Ben bunu yazmadim.'\n'Biliyoruz' dedi Nureddin Efendi.\n'Biz yazdik.\nSiz okudunuz.\nFark etmez.'\n\nTespih tiklartisi devam etti.\nSanki hicbir sey olmamis gibi.\nBelki de olmamisti.\nBelki de bu baslangicti."
     },
 
     {
       "key": "para_0",
-      "title": "KASA BOŞ",
-      "body": "Mehmet sabah 8'de masanıza geliyor.\nDosya yok bu sefer. Kalem de yok.\nSadece bir kağıt.\n\n'Maaşları ödeyemiyoruz.'\n\n'Kaç kişi?'\n'Hepimiz.'\n'Ben dahil?'\n'Özellikle siz.'\n\nKasada ne var diye soruyorsunuz.\n'Bir imzalık yer var' diyor.\n'İstifa imzası. O bedava.'\n\nKahve de bitti. Su da.\nLeyla Hanım kettle'ı doldurmak için banknotlarla ödeme yapmaya çalışıyor.\nBanknotlar geçersiz.\n\nBu nasıl oldu?\n\n'Hesabı bana sormalıydınız' diyor Hasan Bey.\nYCH'den aranızı soğutmuştunuz.\nHaklıymış."
+      "title": "KASA BOŞ, VİCDAN DA",
+      "body": "Mehmet sabah 8'de geldi.\nDosyasiz. Kalemi bile yoktu.\nSadece bir kagit.\n\n'Maaslar odenemiyor.'\n'Kac kisi?'\n'Hepimiz.'\n'Ben dahil mi?'\n'Ozellikle siz.'\n\nNureddin Efendi hayirsever cemaatten\ntekrar bagis istedi.\nBu sefer kimse vermedi.\n\nCemaat de biliyordu:\nBos birliktelik uzun surмez.\nVe bu birliktelik\ncoktan bosamisti zaten.\n\nKasada bir imzalik yer vardi.\nIstifa imzasi.\nO bedava."
     },
 
     {
       "key": "para_100",
-      "title": "ÜÇ AİLE",
-      "body": "Üç aile var bu ülkede.\n\nBirincisi tarım arazilerini kontrol ediyor.\nİkincisi medyayı.\nÜçüncüsü sizi.\n\n'Kontrol etmiyorlar ki' diyeceksiniz.\nAma bir düşünün.\n\nSon beş önemli kararınızın hangisi onların çıkarına aykırıydı?\n\nSıfır.\n\nTesadüf mü?\n\nBay X bugün gelmiyor.\nArtık gelmesine gerek yok.\nSiz artık kendi kendinize 'doğru' kararı veriyorsunuz.\n\nBu çok daha verimli."
+      "title": "İHALE",
+      "body": "Uc aile var bu ulkede.\n\nBirincisi inşaati kontrol ediyor.\nIkincisi medyayi.\nUcuncusu sizi.\n\n'Kontrol etmiyorlar ki' diyeceksiniz.\nAma bir dusunun.\n\nSon bes onemli kararin hangisi\nbu ailelerin cikarına aykiri gitti?\n\nSifir.\n\nNureddin Efendi dun 'bereket' dedi.\nMehmet 'verimlilik' dedi.\nAli Amca hic gelmedi.\n\nAli Amca hicbir zaman yanilmaz.\nCunkü o tek soru sorar:\n'Bu dogru mu?'\n\nSiz artik bu soruyu sormuyordunuz."
     }
 
   ]

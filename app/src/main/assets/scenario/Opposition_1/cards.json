@@ -1,71 +1,205 @@
 {
-  "scenario": "Opposition_1",
+  "scenario": "Opposition_2",
   "party": "MNP",
   "cards": [
 
     {
-      "id": "MNP1-001",
-      "character": "secretary_leyla",
-      "flavor": "Genel Merkez koridoru, toz ve fotokopi kokusu.",
-      "text": "Hosgeldiniz. Uyelik formunuz tamam. Ama bir sey var: Genel Baskanimiz her yeni uyeyle bizzat gorusiyor. Sizi ne zaman odaya alirim?",
-      "choiceLeft":  { "label": "Acelesi yok",          "halk": 0,  "ordu": 1,  "din": 0,  "para": 0  },
-      "choiceRight": { "label": "En kisa surede",        "halk": 2,  "ordu": 0,  "din": 1,  "para": 0  },
+      "id": "MNP-001",
+      "character": "imam_nureddin",
+      "flavor": "Nureddin Efendi sizi kapisindan igeriyle buyur ediyor.",
+      "text": "Hosgeldiniz. MNP ailesine katildiginiz icin Allah razi olsun. Bir kucuk formalite: uyelik formunu doldurmaniz gerekiyor. Iki nushada. Birisi sizde kalir, birisi caminin hafizasinda. Caminin hafizasi hic unutmaz.",
+      "choiceLeft":  { "label": "Neden camide?",   "halk": -1, "ordu": 0, "din": 3,  "para": 0  },
+      "choiceRight": { "label": "Tabii ki efendim", "halk": 2,  "ordu": 0, "din": 5,  "para": 0  },
       "prerequisite": null,
-      "unlocks": ["MNP1-002"],
+      "unlocks": ["MNP-002"],
       "act": 1,
       "yearOffset": 0
     },
 
     {
-      "id": "MNP1-002",
+      "id": "MNP-002",
       "character": "inspector_mehmet",
-      "flavor": "Parti disiplin kurulu raportoru Mehmet Bey masanizda.",
-      "text": "Gecen hafta bir uye Genel Baskana karsi acik elestiride bulundu. Disiplin kurulu toplaniyor. Siz de katilmak ister misiniz? Gozlemci sifatiyla.",
-      "choiceLeft":  { "label": "Katilmayacagim",        "halk": -1, "ordu": 2,  "din": 0,  "para": 0  },
-      "choiceRight": { "label": "Gozlemleyebilirim",     "halk": 1,  "ordu": 1,  "din": 1,  "para": 0  },
-      "prerequisite": "MNP1-001",
-      "unlocks": ["MNP1-003"],
+      "flavor": "Mehmet bey, bu sefer takım elbiseli geliyor.",
+      "text": "Ankara'dan talimat. Yeni uyelere ilk hafta parti disiplin belgesini okutmak zorundayiz. 47 madde. Madde 12 ozellikle onemli: 'Parti kararlarina sorgulamadan uymak.' Sizi bekliyor. Hazir misiniz?",
+      "choiceLeft":  { "label": "Once okuyayim",        "halk": 1,  "ordu": 0, "din": 0,  "para": 0  },
+      "choiceRight": { "label": "Sorgusuz sualsiz uyarim","halk": -2, "ordu": 2, "din": 2,  "para": 1  },
+      "prerequisite": "MNP-001",
+      "unlocks": ["MNP-003"],
       "act": 1,
       "yearOffset": 0
     },
 
     {
-      "id": "MNP1-003",
+      "id": "MNP-003",
       "character": "old_voter_ali",
-      "flavor": "Cami cikisinda Ali Amca sizi taniyor.",
-      "text": "Sizi MNP'den gordum diyorlar. Memnun oldum. Ama sorayim: bu defa vaatler kagit ustunde mi kalacak, yoksa gercek olacak mi?",
-      "choiceLeft":  { "label": "Elimizden geleni",     "halk": 2,  "ordu": 0,  "din": 3,  "para": -1 },
-      "choiceRight": { "label": "Kesin sozu vermem",    "halk": -2, "ordu": 0,  "din": -1, "para": 2  },
-      "prerequisite": "MNP1-002",
-      "unlocks": ["MNP1-004"],
+      "flavor": "Ali amca, parti brosuru elinde, kapida bekliyor.",
+      "text": "Sizi bekliyordum. Bizim mahalleye bir konusmaci gelecek miydi? Ben her secimde MNP'ye verdim. Ama bizim sokak hala asfaltsiz. Hala asfaltsiz. Bu sefer soyleyin birine.",
+      "choiceLeft":  { "label": "Sorun degil, hallederiz",  "halk": 4,  "ordu": 0, "din": 0,  "para": -2 },
+      "choiceRight": { "label": "Once secim, sonra asfalt",  "halk": -3, "ordu": 0, "din": 1,  "para": 1  },
+      "prerequisite": "MNP-002",
+      "unlocks": ["MNP-004"],
+      "act": 1,
+      "yearOffset": 0,
+      "branchNote": "SAG secim Perde 2 Dal A'yi acar"
+    },
+
+    {
+      "id": "MNP-004",
+      "character": "imam_nureddin",
+      "flavor": "Nureddin Efendi, cuma hutbesi oncesi bir sey sormak istiyor.",
+      "text": "Bugun hutbede MNP'nin aile politikasini anmak istiyorum. Izniniz var mi? Tabii ki laik kesim 'siyasi hutbe' diyecek. Ama biz biliyoruz ki aile degerleri siyaset ustu bir meseledir.",
+      "choiceLeft":  { "label": "Efendim dikkatli olun",  "halk": 0,  "ordu": 2,  "din": -3, "para": 0  },
+      "choiceRight": { "label": "Allah razi olsun efendim", "halk": 3,  "ordu": -2, "din": 6,  "para": 0  },
+      "prerequisite": "MNP-003",
+      "unlocks": ["MNP-005"],
       "act": 1,
       "yearOffset": 0
     },
 
     {
-      "id": "MNP1-004",
+      "id": "MNP-005",
       "character": "journalist_can",
-      "flavor": "Bir gazeteci, parti konvoyunun onunde duruyor.",
-      "text": "Sizi gorucu surecinden geciriyorum. 'MNP neden bu kadar kapalı?' diye soruyorum. Ne cevap veriyorsunuz?",
-      "choiceLeft":  { "label": "Kapali degil, ciddi",  "halk": 3,  "ordu": 0,  "din": 2,  "para": 0  },
-      "choiceRight": { "label": "Yorum yapmiyorum",     "halk": -3, "ordu": 1,  "din": 0,  "para": 1  },
-      "prerequisite": "MNP1-003",
-      "unlocks": ["MNP1-005"],
+      "flavor": "Can Arslan, parti girisinde fotograf cekiyor.",
+      "text": "Ozur dilerim, iki sorum var. Bir: MNP'nin 28 Subat surecindeki tutumu hakkinda ne dusunuyorsunuz? Iki: bu soruyu cevaplamak istiyor musunuz? Her iki soru da haber olur.",
+      "choiceLeft":  { "label": "Yorum yapmiyorum",         "halk": -2, "ordu": 4,  "din": 0,  "para": 1  },
+      "choiceRight": { "label": "Demokrasi her zaman kazanir","halk": 5,  "ordu": -5, "din": 2,  "para": 0  },
+      "prerequisite": "MNP-004",
+      "unlocks": ["MNP-006"],
       "act": 1,
       "yearOffset": 0
     },
 
     {
-      "id": "MNP1-005",
+      "id": "MNP-006",
       "character": "general_rifat",
-      "flavor": "Emekli General Rifat, ziyaret amacli geldigini soyledi.",
-      "text": "MNP'nin ordu ile iliskisi her zaman hassas olmustur. Ben emekliyim ama arkadaslarim hala gorevde. Bir kelam etmemi ister misiniz?",
-      "choiceLeft":  { "label": "Gerek yok",            "halk": 0,  "ordu": -3, "din": 0,  "para": 1  },
-      "choiceRight": { "label": "Memnuniyetle",         "halk": -1, "ordu": 5,  "din": 0,  "para": 0  },
-      "prerequisite": "MNP1-004",
-      "unlocks": [],
+      "flavor": "General Rifat, sivilde ve beklenmeden geliyor.",
+      "text": "MNP'ye yeni katildiginizi duydum. Hosgeldiniz. Bir sorum var: Parti icinde laik anayasaya bagli kalanlar var mi sizce? Merak ettim. Boyle insanlar... yatistirici oluyor bazen.",
+      "choiceLeft":  { "label": "Ben laik anayasaya bagliim",  "halk": 1,  "ordu": 6,  "din": -4, "para": 0  },
+      "choiceRight": { "label": "Millet ne istiyorsa o olsun",  "halk": 4,  "ordu": -6, "din": 4,  "para": 0  },
+      "prerequisite": "MNP-005",
+      "unlocks": ["MNP-007"],
       "act": 1,
       "yearOffset": 0
+    },
+
+    {
+      "id": "MNP-007",
+      "character": "imam_nureddin",
+      "flavor": "Nureddin Efendi bir zarfla geliyor.",
+      "text": "Hayirsever bir cemaat, partiye bagis yapmak istiyor. Resmi kanal yok, ama kalpleri temiz. Miktari... yeterli. Ne yapiyoruz?",
+      "choiceLeft":  { "label": "Resmi kanal olmadan olmaz",  "halk": 1,  "ordu": 1,  "din": -3, "para": -4 },
+      "choiceRight": { "label": "Allah razı olsun, kabul",   "halk": -2, "ordu": 0,  "din": 7,  "para": 8  },
+      "prerequisite": "MNP-006",
+      "unlocks": ["MNP-008"],
+      "act": 1,
+      "yearOffset": 0,
+      "branchNote": "Kirli para tohumlanmasi"
+    },
+
+    {
+      "id": "MNP-008",
+      "character": "old_voter_ali",
+      "flavor": "Ali amca, bu sefer iceriden geliyor.",
+      "text": "Oglum, duyduk. General geldi mi sizin buralara? Bize gelen haber MNP'nin orduyla anlastigi. Boyle haberler insanin icini sikistiriyor. Dogru mu bu?",
+      "choiceLeft":  { "label": "Hayir, asil kaygi milletin",  "halk": 5,  "ordu": -3, "din": 0,  "para": 0  },
+      "choiceRight": { "label": "Istikrar gerekiyor Ali Amca", "halk": -4, "ordu": 5,  "din": 1,  "para": 2  },
+      "prerequisite": "MNP-007",
+      "unlocks": ["MNP-009"],
+      "act": 1,
+      "yearOffset": 0
+    },
+
+    {
+      "id": "MNP-009",
+      "character": "inspector_mehmet",
+      "flavor": "Mehmet bu sefer iki dosyayla geliyor. Biri yesil, biri sari.",
+      "text": "Yesil dosya: belediye ihalelerinde MNP'li isimler var. Sorun degil, normal. Sari dosya: bu isimlerden biri aynı zamanda Genel Merkez'e bagis yapmiyor. Sorun bu. Ne yapiyoruz?",
+      "choiceLeft":  { "label": "Ihaleye bakalim once",        "halk": 2,  "ordu": 0,  "din": -1, "para": 3  },
+      "choiceRight": { "label": "Bagis olmadan ihale olmaz",   "halk": -5, "ordu": 0,  "din": 2,  "para": 6  },
+      "prerequisite": "MNP-008",
+      "unlocks": ["MNP-010"],
+      "act": 1,
+      "yearOffset": 0
+    },
+
+    {
+      "id": "MNP-010",
+      "character": "spy_x",
+      "flavor": "Parti koridorunda birisi size beklenmedik bir anda yaklashiyor.",
+      "text": "'Milli Nizam'a hosgeldiniz.' Kimligini gostermiyor. 'Burada herkes izleniyor. Siz de. Ben de. Bunu bilmenizi istedim.' Sonra gidiyor.",
+      "choiceLeft":  { "label": "Kim o, sorasturun",    "halk": 0,  "ordu": 2,  "din": 0,  "para": 0  },
+      "choiceRight": { "label": "Umursamayın",          "halk": 0,  "ordu": 0,  "din": 0,  "para": 0  },
+      "prerequisite": "MNP-009",
+      "unlocks": ["MNP-011"],
+      "act": 1,
+      "yearOffset": 0
+    },
+
+    {
+      "id": "MNP-011",
+      "character": "imam_nureddin",
+      "flavor": "Nureddin Efendi imza toplayarak geliyor.",
+      "text": "Universite kiyafet yonetmeligine itiraz dilekceleri var. 1200 imza toplandi. Sizin adinizdaki imzayi da eklemek istiyorum. Halkimiz bekliyor. Ya da beklemeyebilir — siz bilirsiniz.",
+      "choiceLeft":  { "label": "Hukuki inceleme yapalim once",  "halk": -2, "ordu": 1,  "din": -2, "para": 0  },
+      "choiceRight": { "label": "Imzaliyorum",                   "halk": 6,  "ordu": -3, "din": 7,  "para": 0  },
+      "prerequisite": "MNP-010",
+      "unlocks": ["MNP-012"],
+      "act": 1,
+      "yearOffset": 0,
+      "branchNote": "SAG: Perde 2 Dal A icin kritik",
+      "branchTrigger": true
+    },
+
+    {
+      "id": "MNP-012",
+      "character": "journalist_can",
+      "flavor": "Can bu sefer bizzat ofise geliyor, notu kapali.",
+      "text": "Can Arslan, Hur Haber. Kisa bir soru: MNP'nin son yillarda artan din baglantili bagis kaynaklari hakkinda... bir aciklamaniz var mi? 'Yok' da haber olur tabii.",
+      "choiceLeft":  { "label": "Aciklama yapmiyorum",        "halk": -2, "ordu": 0,  "din": 0,  "para": 2  },
+      "choiceRight": { "label": "Halka hesap veririz, randevu", "halk": 4,  "ordu": 0,  "din": -2, "para": -3 },
+      "prerequisite": "MNP-011",
+      "unlocks": ["MNP-013"],
+      "act": 1,
+      "yearOffset": 0
+    },
+
+    {
+      "id": "MNP-013",
+      "character": "inspector_mehmet",
+      "flavor": "Mehmet, nadir gordugu bir endiseyle geliyor.",
+      "text": "Izmir subesinden rapor: yerel yoneticilerimiz laiklerle uzlasim toplantisi yapmak istiyor. Genel Merkez bilmiyor. Siz ne dusunuyorsunuz? Destekleyelim mi?",
+      "choiceLeft":  { "label": "Uzlasim zayiflik isaretidir",  "halk": -3, "ordu": 2,  "din": 4,  "para": 0  },
+      "choiceRight": { "label": "Diyalog guctur, destekleyin",  "halk": 5,  "ordu": -2, "din": -3, "para": 1  },
+      "prerequisite": "MNP-012",
+      "unlocks": ["MNP-014"],
+      "act": 1,
+      "yearOffset": 0
+    },
+
+    {
+      "id": "MNP-014",
+      "character": "old_voter_ali",
+      "flavor": "Ali amca, partinin onunde, diger yasylilarla konusuyor.",
+      "text": "Sizinle gorusmek istedim. Biz yas li insanlar bir sey anliyoruz: Bu secim kazanilmazsa, MNP biter. Siz ne yapacaksiniz? Kendi kisisel kariyerinizi mi, partiyi mi dusunuyorsunuz?",
+      "choiceLeft":  { "label": "Ben partiyi dusunurum",    "halk": 3,  "ordu": 0,  "din": 1,  "para": 0  },
+      "choiceRight": { "label": "Ikisi ayrilamaz Ali Amca", "halk": 5,  "ordu": 0,  "din": 2,  "para": 0  },
+      "prerequisite": "MNP-013",
+      "unlocks": ["MNP-015"],
+      "act": 1,
+      "yearOffset": 0
+    },
+
+    {
+      "id": "MNP-015",
+      "character": "imam_nureddin",
+      "flavor": "Perde 1 kapanisi. Nureddin Efendi cay getiriyor.",
+      "text": "Perde 1 bitti. General bizi izliyor. Can Arslan hakkimizda yazacak. Bay X'in kim oldugunu bilmiyoruz. Ve hazinede para az. Perde 2'ye hazir misiniz?",
+      "choiceLeft":  { "label": "Hazir degilim ama yola cikiyorum", "halk": 2,  "ordu": 0,  "din": 1,  "para": 0  },
+      "choiceRight": { "label": "Allah yardimci olsun, baslayin",   "halk": 0,  "ordu": 0,  "din": 3,  "para": 1  },
+      "prerequisite": "MNP-014",
+      "unlocks": ["MNP-016"],
+      "act": 1,
+      "yearOffset": 1
     }
 
   ]
