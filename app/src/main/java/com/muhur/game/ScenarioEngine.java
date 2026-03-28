@@ -12,27 +12,23 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * MÜHÜR — ScenarioEngine
+ * MÜHÜR — ScenarioEngine (Revizyon 8)
  *
- * Kart motoru. Tek sorumluluk: doğru kartı doğru anda göstermek.
- *
- * Bağımlılıklar:
- *   - assets/scenario/opposition_1/cards.json   (kart verisi)
- *   - assets/scenario/opposition_1/endings.json (felaket sonları)
- *   - GameState                                 (bar/karar durumu)
- *
- * Kullanım (GameRenderer içinden):
- *   engine = new ScenarioEngine(assetManager);
- *   engine.loadScenario("scenario/opposition_1/cards.json");
- *   engine.loadEndings("scenario/opposition_1/endings.json");
- *
- *   Card card = engine.getCurrentCard();
- *   engine.choose(card, true, state);   // true=sağ, false=sol
- *   Card next = engine.getCurrentCard();
+ * Değişiklikler (Rev 8):
+ *   1. loadScenario / loadEndings yolları artık dışarıdan tam path alıyor
+ *      → GameRenderer.startGameWithParty() "scenario/MNP/cards.json" şeklinde verir.
+ *   2. determineBranch çağrısı: sabit "OPP1-015" yerine son aktın son kartı izleniyor.
+ *      Kart JSON'ında "branchTrigger": true bayrağı varsa dal belirleme yapılır.
+ *   3. advance() artık act sırasını koruyarak sıralıyor (act ASC, sonra orijinal sıra).
+ *   4. parseCard() "choiceLeft"/"choiceRight" içindeki eksik "ordu" anahtarını 0 ile doldurur.
+ *   5. choose() iktidar evresi çarpanını GameState.applyEffects() üzerinden alır (oraya taşındı).
+ *   6. isScenarioComplete() → senaryo tamamen bitti mi (oyun bitmeden seçim ekranına gidilecek)?
  */
 public class ScenarioEngine {
 
-    // ── KART MODELİ ───────────────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════════════
+    //  MODEL
+    // ══════════════════════════════════════════════════════════════════════
 
     public static class Choice {
         public String label;
@@ -47,63 +43,56 @@ public class ScenarioEngine {
         public String   text;
         public Choice   choiceLeft;
         public Choice   choiceRight;
-        public String   prerequisite;       // tek önkoşul kart ID
-        public String[] unlocks;            // bu kart bittikten sonra açılanlar
+        public String   prerequisite;
+        public String[] unlocks;
         public int      act;
-        public String   branch;             // "A", "B" veya "" (her dalda)
-        // Dal A için özel: hangi kartların SAĞ seçilmiş olması gerekir
-        public String[] requiresRightOn;
-        // Özel koşul: belirli bir kartta belirli seçim
+        public String   branch;              // "A", "B" veya "" (her dal)
+        public boolean  branchTrigger;       // true → bu kart oynandıktan sonra dal belirle
+        public String[] requiresRightOn;     // bu kart IDlerinde sağ seçilmişse görünür
         public String   requiresChoiceCardId;
         public String   requiresChoiceValue; // "left" veya "right"
     }
 
-    // ── FELAkat SON MODELİ ───────────────────────────────────────────────
-
     public static class Ending {
-        public String key;    // "halk_0", "ordu_100" vb.
+        public String key;
         public String title;
         public String body;
     }
 
-    // ── İÇ DURUM ─────────────────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════════════
+    //  İÇ DURUM
+    // ══════════════════════════════════════════════════════════════════════
 
     private final AssetManager mAssets;
 
-    /** Tüm kartlar: id → Card */
-    private final Map<String, Card> mCards = new LinkedHashMap<>();
-
-    /** Tüm sonlar: key → Ending */
+    /** Tüm kartlar: id → Card (yükleme sırasını korur) */
+    private final Map<String, Card>   mCards   = new LinkedHashMap<>();
+    /** Tüm felaket sonları: key → Ending */
     private final Map<String, Ending> mEndings = new LinkedHashMap<>();
-
-    /** Sıradaki kart kuyruğu (act sırası) */
-    private final List<String> mQueue = new ArrayList<>();
 
     /** Şu an oyuncuya gösterilen kart */
     private Card mCurrentCard = null;
 
-    /** Kuyruktaki indeks */
-    private int mQueueIdx = 0;
-
-    // ── CONSTRUCTOR ───────────────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════════════
+    //  CONSTRUCTOR
+    // ══════════════════════════════════════════════════════════════════════
 
     public ScenarioEngine(AssetManager assets) {
         mAssets = assets;
     }
 
-    // ── YÜKLEME ───────────────────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════════════
+    //  YÜKLEME
+    // ══════════════════════════════════════════════════════════════════════
 
     /**
-     * cards.json dosyasını yükler ve dahili kart haritasını doldurur.
-     * @param assetPath örn. "scenario/opposition_1/cards.json"
-     * @return Başarılı mı?
+     * cards.json dosyasını yükler.
+     * @param assetPath örn. "scenario/MNP/cards.json"
      */
     public boolean loadScenario(String assetPath) {
         try {
-            String raw = readAsset(assetPath);
-            JSONObject root  = new JSONObject(raw);
+            JSONObject root  = new JSONObject(readAsset(assetPath));
             JSONArray  cards = root.getJSONArray("cards");
-
             mCards.clear();
             for (int i = 0; i < cards.length(); i++) {
                 Card c = parseCard(cards.getJSONObject(i));
@@ -117,13 +106,11 @@ public class ScenarioEngine {
 
     /**
      * endings.json dosyasını yükler.
+     * @param assetPath örn. "scenario/MNP/endings.json"
      */
     public boolean loadEndings(String assetPath) {
         try {
-            String raw    = readAsset(assetPath);
-            JSONObject root = new JSONObject(raw);
-            JSONArray  arr  = root.getJSONArray("endings");
-
+            JSONArray arr = new JSONObject(readAsset(assetPath)).getJSONArray("endings");
             mEndings.clear();
             for (int i = 0; i < arr.length(); i++) {
                 JSONObject obj = arr.getJSONObject(i);
@@ -139,66 +126,46 @@ public class ScenarioEngine {
         }
     }
 
-    // ── BAŞLATMA ──────────────────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════════════
+    //  BAŞLATMA
+    // ══════════════════════════════════════════════════════════════════════
 
     /**
-     * Oyunu sıfırlar ve ilk kartı yükler.
+     * Oyunu sıfırlar ve ilk uygun kartı yükler.
      * GameState.sifirla() çağrısından SONRA çağrılmalı.
      */
     public void startScenario(GameState state) {
-        mQueue.clear();
-        mQueueIdx = 0;
         mCurrentCard = null;
-        buildQueue(state);
         advance(state);
     }
 
-    /**
-     * Mevcut duruma göre kuyruğu (re)inşa eder.
-     * Perde, dal ve tamamlanmış kartlara göre sıralama yapar.
-     */
-    private void buildQueue(GameState state) {
-        mQueue.clear();
-        for (Card card : mCards.values()) {
-            if (isCardAvailable(card, state)) {
-                mQueue.add(card.id);
-            }
-        }
-    }
+    // ══════════════════════════════════════════════════════════════════════
+    //  ERİŞİLEBİLİRLİK
+    // ══════════════════════════════════════════════════════════════════════
 
-    // ── ERİŞİLEBİLİRLİK KONTROLÜ ─────────────────────────────────────────
-
-    /**
-     * Kartın şu an oynanabilir olup olmadığını kontrol eder.
-     * Kurallar:
-     *   1. Zaten tamamlanmış → hayır
-     *   2. Prerequisite tamamlanmamış → hayır
-     *   3. Dal kısıtı uyuşmuyorsa → hayır
-     *   4. requiresRightOn → ilgili kartlarda sağ seçim yapılmış mı?
-     *   5. requiresChoiceCardId → belirli kartta belirli seçim yapılmış mı?
-     */
     private boolean isCardAvailable(Card card, GameState state) {
-        // 1. Zaten oynandıysa geç
+        // 1. Zaten oynanmış
         if (state.completedCards.contains(card.id)) return false;
 
-        // 2. Önkoşul
-        if (card.prerequisite != null && !card.prerequisite.isEmpty()) {
+        // 2. Önkoşul tamamlanmamış
+        if (card.prerequisite != null && !card.prerequisite.isEmpty()
+                && !card.prerequisite.equals("null")) {
             if (!state.completedCards.contains(card.prerequisite)) return false;
         }
 
-        // 3. Dal kısıtı
+        // 3. Dal kısıtı (boş → her dalda göster)
         if (card.branch != null && !card.branch.isEmpty()) {
             if (!card.branch.equals(state.activeBranch)) return false;
         }
 
-        // 4. requiresRightOn
+        // 4. requiresRightOn — belirli kartlarda sağ seçim yapılmış mı?
         if (card.requiresRightOn != null) {
             for (String reqId : card.requiresRightOn) {
                 if (!"right".equals(state.cardChoices.get(reqId))) return false;
             }
         }
 
-        // 5. requiresChoiceCardId
+        // 5. requiresChoiceOnCard — belirli kartta belirli yön seçilmiş mi?
         if (card.requiresChoiceCardId != null && !card.requiresChoiceCardId.isEmpty()) {
             String actual = state.cardChoices.get(card.requiresChoiceCardId);
             if (!card.requiresChoiceValue.equals(actual)) return false;
@@ -207,104 +174,106 @@ public class ScenarioEngine {
         return true;
     }
 
-    // ── KART GEÇİŞİ ──────────────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════════════
+    //  KART GEÇİŞİ
+    // ══════════════════════════════════════════════════════════════════════
 
-    /**
-     * Sıradaki uygun kartı döndürür. Null → senaryo bitti.
-     */
+    /** Oyuncuya gösterilen aktif kart. null → senaryo bitti veya felaket. */
     public Card getCurrentCard() {
         return mCurrentCard;
     }
 
     /**
      * Oyuncu seçim yaptığında çağrılır.
-     * @param right true = sağ (EVET), false = sol (HAYIR)
+     * @param right true = sağa kaydır (EVET), false = sola (HAYIR)
      */
     public void choose(GameState state, boolean right) {
         if (mCurrentCard == null) return;
         Card card = mCurrentCard;
 
-        Choice choice = right ? card.choiceRight : card.choiceLeft;
+        Choice choice    = right ? card.choiceRight : card.choiceLeft;
         String choiceKey = right ? "right" : "left";
 
-        // Barları güncelle
+        // Efektleri uygula — GameState çarpanı ve yıl yönetimini halleder
         state.applyEffects(choice.halk, choice.din, choice.para, choice.ordu, choice.yearOffset);
 
         // Kartı tamamlandı olarak işaretle
         state.markCardDone(card.id, choiceKey);
 
-        // Perde 1 bittikten sonra dal belirle
-        if ("OPP1-015".equals(card.id)) {
+        // Perde aktını güncelle
+        if (card.act >= state.currentAct) state.currentAct = card.act;
+
+        // Dal belirleyici kart mı?
+        if (card.branchTrigger) {
             state.determineBranch();
         }
 
-        // Perde takibi
-        updateAct(state, card.act);
-
-        // Oyun bittiyse dur
+        // Felaket tetiklendiyse dur
         if (state.oyunBitti) {
             mCurrentCard = null;
             return;
         }
 
-        // Bir sonraki karta geç
         advance(state);
     }
 
     /**
-     * Mevcut kuyruğu günceller ve sonraki uygun kartı yükler.
+     * Mevcut duruma göre bir sonraki uygun kartı bulur.
+     * Sıralama: act ASC → LinkedHashMap orijinal sıra.
      */
     private void advance(GameState state) {
-        // Kuyruğu mevcut duruma göre yeniden filtrele
-        buildQueue(state);
+        // Tüm kartları filtrele: uygun + oynanmamış
+        List<Card> available = new ArrayList<>();
+        for (Card card : mCards.values()) {
+            if (isCardAvailable(card, state)) available.add(card);
+        }
 
-        if (mQueue.isEmpty()) {
+        if (available.isEmpty()) {
             mCurrentCard = null;
             return;
         }
 
-        // Kuyruktaki ilk uygun kartı al
-        mCurrentCard = mCards.get(mQueue.get(0));
-    }
-
-    private void updateAct(GameState state, int completedAct) {
-        // Perdeye göre currentAct güncelle
-        if (completedAct >= state.currentAct) {
-            state.currentAct = completedAct;
+        // Act'e göre sırala, sonra orijinal eklenme sırasını koru (stable sort)
+        // Java'nın sort'u stable olduğu için act karşılaştırması yeterli
+        Card next = available.get(0);
+        for (Card c : available) {
+            if (c.act < next.act) next = c;
         }
+        mCurrentCard = next;
     }
 
-    // ── BİTİŞ YÖNETİMİ ───────────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════════════
+    //  BİTİŞ
+    // ══════════════════════════════════════════════════════════════════════
 
-    /**
-     * Felaket sonunu döndürür. null → felaket yok.
-     */
+    /** Felaket sonunu döndürür. null → felaket yok veya anahtar eşleşmiyor. */
     public Ending getEnding(GameState state) {
         if (!state.oyunBitti || state.endingKey.isEmpty()) return null;
         return mEndings.get(state.endingKey);
     }
 
-    /**
-     * Senaryo tüm kartları bitirdi mi?
-     */
-    public boolean isScenarioDone() {
+    /** Tüm kartlar bitti mi (felaket olmadan)? → Seçim ekranına geç. */
+    public boolean isScenarioComplete() {
         return mCurrentCard == null;
     }
 
-    // ── PARSE ────────────────────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════════════
+    //  PARSE
+    // ══════════════════════════════════════════════════════════════════════
 
     private Card parseCard(JSONObject obj) throws Exception {
         Card c = new Card();
-        c.id        = obj.optString("id",        "");
-        c.character = obj.optString("character", "");
-        c.flavor    = obj.optString("flavor",    "");
-        c.text      = obj.optString("text",      "");
-        c.act       = obj.optInt("act", 1);
-        c.branch    = obj.optString("branch",    "");
+        c.id           = obj.optString("id",        "");
+        c.character    = obj.optString("character", "");
+        c.flavor       = obj.optString("flavor",    "");
+        c.text         = obj.optString("text",      "");
+        c.act          = obj.optInt("act", 1);
+        c.branch       = obj.optString("branch", "");
+        c.branchTrigger = obj.optBoolean("branchTrigger", false);
         c.prerequisite = obj.optString("prerequisite", "");
         if (c.prerequisite.equals("null")) c.prerequisite = "";
 
-        // unlocks dizisi
+        // unlocks
         if (obj.has("unlocks")) {
             JSONArray ua = obj.getJSONArray("unlocks");
             c.unlocks = new String[ua.length()];
@@ -313,9 +282,11 @@ public class ScenarioEngine {
             c.unlocks = new String[0];
         }
 
-        // requiresRightOn dizisi
-        if (obj.has("requiresCompletedCards")) {
-            JSONArray ra = obj.getJSONArray("requiresCompletedCards");
+        // requiresRightOn (eski JSON'da "requiresCompletedCards" adıyla da gelebilir)
+        String reqKey = obj.has("requiresRightOn") ? "requiresRightOn"
+                      : obj.has("requiresCompletedCards") ? "requiresCompletedCards" : null;
+        if (reqKey != null) {
+            JSONArray ra = obj.getJSONArray(reqKey);
             c.requiresRightOn = new String[ra.length()];
             for (int i = 0; i < ra.length(); i++) c.requiresRightOn[i] = ra.getString(i);
         }
@@ -330,8 +301,10 @@ public class ScenarioEngine {
         c.choiceLeft  = parseChoice(obj.getJSONObject("choiceLeft"));
         c.choiceRight = parseChoice(obj.getJSONObject("choiceRight"));
 
-        c.choiceLeft.yearOffset  = obj.optInt("yearOffset", 0);
-        c.choiceRight.yearOffset = obj.optInt("yearOffset", 0);
+        // yearOffset her iki seçeneğe de uygulanır
+        int yearOffset = obj.optInt("yearOffset", 0);
+        c.choiceLeft.yearOffset  = yearOffset;
+        c.choiceRight.yearOffset = yearOffset;
 
         return c;
     }
@@ -339,14 +312,16 @@ public class ScenarioEngine {
     private Choice parseChoice(JSONObject obj) throws Exception {
         Choice ch = new Choice();
         ch.label = obj.optString("label", "");
-        ch.halk  = obj.optInt("halk", 0);
-        ch.din   = obj.optInt("din",  0);
-        ch.para  = obj.optInt("para", 0);
-        ch.ordu  = obj.optInt("ordu", 0);
+        ch.halk  = obj.optInt("halk",  0);
+        ch.din   = obj.optInt("din",   0);
+        ch.para  = obj.optInt("para",  0);
+        ch.ordu  = obj.optInt("ordu",  0);
         return ch;
     }
 
-    // ── ASSET OKUMA ──────────────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════════════
+    //  ASSET OKUMA
+    // ══════════════════════════════════════════════════════════════════════
 
     private String readAsset(String path) throws Exception {
         InputStream is  = mAssets.open(path);
